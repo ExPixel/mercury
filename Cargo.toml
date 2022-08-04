@@ -1,0 +1,2 @@
+[workspace]
+members = ["mercury", "mercury-web", "mercury-smtp", "mercury-tests", "smtp-server", "mail", "rusqlite-async"]

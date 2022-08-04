@@ -1,0 +1,2 @@
+[log]
+filter = "info,web=trace,smtp-server=trace,mercury=trace"

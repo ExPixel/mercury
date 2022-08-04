@@ -1,0 +1,15 @@
+[package]
+name = "mercury-web"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+axum = "0.5"
+tower = { version = "0.4", default-features = false, features = ["log"] }
+tower-http = { version = "0.3", default-features = false, features = ["trace"] }
+axum-extra = { version = "0.3", default-features = false, features = ["spa"] }
+serde = { version = "1", default-features = false, features = ["std", "derive"] }
+anyhow = "1"
+tracing = { version = "0.1", default-features = false, features = ["std"] }

@@ -1,0 +1,11 @@
+[package]
+name = "mail"
+version = "0.1.0"
+edition = "2021"
+description = "A parser for the internet message format or email (RFC 5322)"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+thiserror = "1"
+nom = "7"

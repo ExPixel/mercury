@@ -1,0 +1,14 @@
+[package]
+name = "smtp-server"
+version = "0.1.0"
+edition = "2021"
+description = "An SMTP server implementation (RFC 5321)"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+thiserror = "1"
+tokio = { version = "1", default-features = false, features = ["net", "sync", "macros", "io-util", "rt", "time"] }
+tracing = { version = "0.1", default-features = false, features = ["std"] }
+tracing-futures = "0.2"
+nom = "7"

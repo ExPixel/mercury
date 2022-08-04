@@ -1,0 +1,8 @@
+[log]
+filter = "info"
+
+[http]
+addr = "127.0.0.1:8080"
+
+[smtp]
+addr = "127.0.0.1:8025"

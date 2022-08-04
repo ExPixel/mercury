@@ -1,0 +1,15 @@
+[package]
+name = "mercury-tests"
+version = "0.1.0"
+edition = "2021"
+
+[[test]]
+name = "integration"
+path = "src/test.rs"
+
+[dependencies]
+lettre = { version = "0.10", default-features = false, features = ["smtp-transport", "hostname", "builder"] }
+tokio = { version = "1", default-features = false, features = ["net", "sync", "macros", "rt", "time"] }
+smtp-server = { path = "../smtp-server" }
+tracing = { version = "0.1", default-features = false, features = ["std"] }
+tracing-subscriber = { version = "0.3" }
