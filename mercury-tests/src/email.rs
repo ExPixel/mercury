@@ -88,7 +88,7 @@ pub async fn mail_test() -> Result<(), smtp_server::Error> {
             Ok(_) => info!("email sent successfully"),
             Err(err) => drop(mailer_err_tx.blocking_send(Box::new(err))),
         }
-        println!("sent");
+        info!("sent");
     });
 
     let timeout = tokio::time::sleep(Duration::from_secs(100));

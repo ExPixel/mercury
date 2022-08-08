@@ -2,7 +2,13 @@
 filter = "info"
 
 [http]
-addr = "127.0.0.1:8080"
+address = "127.0.0.1:8080"
 
 [smtp]
-addr = "127.0.0.1:8025"
+address = "127.0.0.1:8025"
+
+[storage.sqlite]
+path = "data/database.db3"
+
+[storage.mail]
+directory = "data/mail"

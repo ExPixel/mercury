@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 config = { version = "0.13", default-features = false, features = ["toml"] }
 web = { path = "../mercury-web", package = "mercury-web" }
+storage = { path = "../mercury-storage", package = "mercury-storage" }
 smtp = { path = "../mercury-smtp", package = "mercury-smtp" }
 anyhow = "1"
 tokio = { version = "1", default-features = false, features = ["rt-multi-thread"] }

@@ -25,13 +25,13 @@ import {
 } from '@mantine/core';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import EmailWithSidebarView from './EmailWithSidebarView';
-import EmailList from './EmailList';
+import EmailListView from './EmailListView';
 
 export function AppNav() {
     return (<>
         <Navbar.Section mt='xs'>[ HEADER ]</Navbar.Section>
         <Navbar.Section grow mt='md'>
-            <EmailList />
+            <EmailListView />
         </Navbar.Section>
         <Navbar.Section>[ FOOTER ]</Navbar.Section>
     </>);

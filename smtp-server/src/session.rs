@@ -77,11 +77,16 @@ impl Session {
     fn on_data(&mut self, reply: &mut Reply) {
         debug!(size = self.data_buffer.len(), "received data");
 
-        let mail = RawMail::new(
+        let mut mail = RawMail::new(
             std::mem::take(&mut self.reverse_path),
             std::mem::take(&mut self.forward_path),
             std::mem::take(&mut self.data_buffer),
         );
+
+        if mail.data.ends_with(DATA_TERMINATOR) {
+            mail.data.truncate(mail.data.len() - DATA_TERMINATOR.len());
+        }
+
         (self.on_new_mail)(mail);
 
         self.mode = Mode::Line;
@@ -162,8 +167,8 @@ impl Session {
     pub fn terminator(&self) -> &'static [u8] {
         match self.mode {
             Mode::Open => unreachable!("no terminator while in open mode"),
-            Mode::Line => b"\r\n",
-            Mode::Data => b"\r\n.\r\n",
+            Mode::Line => LINE_TERMINATOR,
+            Mode::Data => DATA_TERMINATOR,
         }
     }
 
@@ -187,3 +192,6 @@ pub enum Mode {
     Line,
     Data,
 }
+
+const LINE_TERMINATOR: &[u8] = b"\r\n";
+const DATA_TERMINATOR: &[u8] = b"\r\n.\r\n";

@@ -1,5 +1,5 @@
 /*
-    Mercury Mail Parser
+    Mercury Mail Testing Tool
     Copyright (C) 2022 Adolph Celestin
 
     This program is free software: you can redistribute it and/or modify
@@ -16,32 +16,9 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use std::ops::Range;
+import * as React from 'react';
+import EmailList from './EmailList';
 
-#[allow(dead_code)]
-mod parser;
-
-pub enum Entity {
-    SinglePart(SinglePart),
-    MultiPart(MultiPart),
+export default function EmailListView() {
+    return <EmailList></EmailList>
 }
-
-pub struct SinglePart {
-    encoding: Encoding,
-    body: Range<usize>,
-}
-
-pub struct MultiPart {
-    header: Header,
-    body: Range<usize>,
-    parts: Vec<Entity>,
-}
-
-pub enum Encoding {}
-
-pub enum Part {
-    Single(SinglePart),
-    Multi(MultiPart),
-}
-
-pub struct Header {}

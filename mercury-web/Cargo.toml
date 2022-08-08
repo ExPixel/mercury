@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 axum = "0.5"
 tower = { version = "0.4", default-features = false, features = ["log"] }
-tower-http = { version = "0.3", default-features = false, features = ["trace"] }
+tower-http = { version = "0.3", default-features = false, features = ["trace", "compression-gzip"] }
 axum-extra = { version = "0.3", default-features = false, features = ["spa"] }
 serde = { version = "1", default-features = false, features = ["std", "derive"] }
 anyhow = "1"

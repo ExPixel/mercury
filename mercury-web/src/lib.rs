@@ -3,7 +3,7 @@ use axum::{http::StatusCode, routing::get_service, Router};
 use axum_extra::routing::SpaRouter;
 use std::net::SocketAddr;
 use tower::ServiceBuilder;
-use tower_http::{services::ServeDir, trace::TraceLayer};
+use tower_http::{compression::CompressionLayer, services::ServeDir, trace::TraceLayer};
 use tracing::debug;
 
 pub async fn run(http_config: &HttpConfig) -> anyhow::Result<()> {
@@ -18,9 +18,13 @@ pub async fn run(http_config: &HttpConfig) -> anyhow::Result<()> {
     let app = Router::new()
         .merge(spa)
         .nest("/static", static_files_service)
-        .layer(ServiceBuilder::new().layer(TraceLayer::new_for_http()));
+        .layer(
+            ServiceBuilder::new()
+                .layer(TraceLayer::new_for_http())
+                .layer(CompressionLayer::new()),
+        );
     let addr: SocketAddr = http_config
-        .addr
+        .address
         .parse()
         .context("failed to parse http addr")?;
     debug!(addr = display(addr), "starting HTTP server");
@@ -32,5 +36,5 @@ pub async fn run(http_config: &HttpConfig) -> anyhow::Result<()> {
 
 #[derive(serde::Deserialize)]
 pub struct HttpConfig {
-    pub addr: String,
+    pub address: String,
 }

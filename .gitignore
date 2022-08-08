@@ -11,3 +11,4 @@ config/local.toml
 .pnp.*
 
 .parcel-cache/
+data/
