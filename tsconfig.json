@@ -1,7 +1,6 @@
 {
     "compilerOptions": {
         "noImplicitAny": true,
-        "isolatedModules": true,
         "esModuleInterop": true,
         "moduleResolution": "node",
         "baseUrl": "frontend/src/",
