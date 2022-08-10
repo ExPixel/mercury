@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 use crate::error::{Error, Result};
 use rusqlite::Connection;
 use time::OffsetDateTime;

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 use async_compression::tokio::bufread::GzipDecoder;
 use axum::{
     body::StreamBody,
