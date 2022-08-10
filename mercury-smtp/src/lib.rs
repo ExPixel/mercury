@@ -3,7 +3,7 @@ use std::path::Path;
 use anyhow::Context as _;
 use async_compression::tokio::write::GzipEncoder;
 use smtp_server::RawMail;
-use storage::Storage;
+use storage::{mail::MailMetadata, Storage};
 use tokio::{io::AsyncWriteExt, sync::mpsc};
 use tracing::{debug, error, warn};
 
@@ -38,13 +38,18 @@ async fn process_new_mail(raw_mail: RawMail, storage: &Storage) -> anyhow::Resul
     let byte_size = raw_mail.data.len();
     tracing::debug!(bytes = byte_size, "received mail");
 
-    let mut mail_id = storage.mail.generate_mail_id();
-    let mut mail_file_path = storage.mail.mail_file_path(mail_id);
+    let metadata = MailMetadata {
+        from: raw_mail.reverse_path,
+        to: raw_mail.forward_path,
+    };
 
-    while tokio::fs::metadata(&mail_file_path).await.is_ok() {
-        mail_id = storage.mail.generate_mail_id();
-        mail_file_path = storage.mail.mail_file_path(mail_id);
-    }
+    let mail_id = storage
+        .mail
+        .store_mail_metadata(&metadata)
+        .await
+        .context("error occurred while storing mail metadata")?;
+    debug!(id = debug(mail_id), "mail metadata stored");
+    let mail_file_path = storage.mail.mail_file_path(mail_id);
 
     write_mail_file(&mail_file_path, &raw_mail.data)
         .await
@@ -55,13 +60,6 @@ async fn process_new_mail(raw_mail: RawMail, storage: &Storage) -> anyhow::Resul
             )
         })?;
     debug!(path = debug(&mail_file_path), "mail data stored");
-
-    storage
-        .mail
-        .store_mail_metadata(mail_id)
-        .await
-        .context("error occurred while storing mail metadata")?;
-    debug!(id = debug(mail_id.0), "mail metadata stored");
 
     Ok(())
 }
@@ -75,6 +73,10 @@ async fn write_mail_file(path: &Path, data: &[u8]) -> anyhow::Result<()> {
         .write_all(data)
         .await
         .context("failed to write encoded data")?;
+    encoder
+        .shutdown()
+        .await
+        .context("failed to terminate gzip encoder")?;
     Ok(())
 }
 

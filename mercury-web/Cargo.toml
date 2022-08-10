@@ -8,8 +8,13 @@ edition = "2021"
 [dependencies]
 axum = "0.5"
 tower = { version = "0.4", default-features = false, features = ["log"] }
-tower-http = { version = "0.3", default-features = false, features = ["trace", "compression-gzip"] }
+tower-http = { version = "0.3", default-features = false, features = ["trace", "compression-gzip", "cors"] }
 axum-extra = { version = "0.3", default-features = false, features = ["spa"] }
 serde = { version = "1", default-features = false, features = ["std", "derive"] }
 anyhow = "1"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
+storage = { path = "../mercury-storage", package = "mercury-storage" }
+tokio = { version = "1", default-features = false, features = ["fs"] }
+tokio-util = { version = "0.7", default-features = false, features = ["io"] }
+http = "0.2.8"
+async-compression = { version = "0.3", default-features = false, features = ["tokio", "gzip"] }

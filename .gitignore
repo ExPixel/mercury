@@ -6,9 +6,10 @@ config/local.toml
 !.yarn/patches
 !.yarn/plugins
 !.yarn/releases
-!.yarn/sdks
 !.yarn/versions
 .pnp.*
+.vscode
+.vim
 
 .parcel-cache/
 data/

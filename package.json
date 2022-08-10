@@ -1,9 +1,9 @@
 {
-  "name": "web",
+  "name": "frontend",
   "packageManager": "yarn@3.2.2",
   "private": true,
   "type": "module",
-  "source": "web/src/main.html",
+  "source": "frontend/src/main.html",
   "targets": {
     "default": {
       "distDir": "build",

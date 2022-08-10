@@ -72,8 +72,8 @@ async fn run(config: &Config) -> anyhow::Result<()> {
     let storage_config = config.get::<StorageConfig>("storage")?;
 
     let storage = Storage::new(storage_config).context("error building storage config")?;
-    let http_task = web::run(&http_config);
-    let smtp_task = smtp::run(&smtp_config, storage.clone());
+    let http_task = web::run(&http_config, storage.clone());
+    let smtp_task = smtp::run(&smtp_config, storage);
 
     tokio::try_join!(http_task, smtp_task).map(|(r, _)| r)
 }

@@ -1,7 +1,10 @@
-use std::path::{Path, PathBuf};
+use std::{
+    fmt::Display,
+    path::{Path, PathBuf},
+};
 
-use time::OffsetDateTime;
-use uuid::Uuid;
+use serde::{Deserialize, Serialize};
+use time::{serde::rfc3339, OffsetDateTime};
 
 use crate::{
     error::{Error, Result},
@@ -21,13 +24,47 @@ impl MailStorage {
         MailStorage { sql, config }
     }
 
-    pub async fn store_mail_metadata(&self, id: MailId) -> Result<()> {
+    pub async fn store_mail_metadata(&self, metadata: &MailMetadata) -> Result<MailId> {
+        let metadata_json = serde_json::to_string(metadata)
+            .map_err(|e| Error::Json(e, "serializing mail metadata"))?;
         self.sql
-            .with::<SqliteResult<()>, _>(move |conn| {
-                let sql = "INSERT INTO mail (id, metadata, created_at) VALUES (?, ?, ?);";
+            .with::<SqliteResult<MailId>, _>(move |conn| {
+                let sql = "INSERT INTO mail (metadata, created_at) VALUES (?, ?) RETURNING id;";
                 let mut statement = conn.prepare_cached(sql)?;
-                statement.execute((id.0, "", OffsetDateTime::now_utc()))?;
-                Ok(())
+                statement
+                    .query_row((metadata_json, OffsetDateTime::now_utc()), |r| {
+                        r.get(0usize)
+                    })
+                    .map(MailId)
+            })
+            .await
+            .map_err(|e| Error::Sqlite(e, "storing mail"))
+    }
+
+    pub async fn get_mail(&self, max: usize, after: Option<MailId>) -> Result<Vec<StoredMail>> {
+        let after = after.map(|mid| mid.0).unwrap_or(-1);
+        self.sql
+            .with::<SqliteResult<Vec<StoredMail>>, _>(move |conn| {
+                let sql =
+                    "SELECT id, metadata, created_at FROM mail WHERE id > ? ORDER BY id LIMIT ?;";
+                let mut statement = conn.prepare_cached(sql)?;
+                let rows = statement.query_map((after, max as i64), |row| {
+                    let metadata = row.get::<_, String>(1usize)?;
+                    let metadata = serde_json::from_str(&metadata).map_err(|e| {
+                        rusqlite::Error::FromSqlConversionFailure(
+                            1,
+                            rusqlite::types::Type::Text,
+                            Box::new(e),
+                        )
+                    })?;
+
+                    Ok(StoredMail {
+                        id: MailId(row.get(0usize)?),
+                        metadata,
+                        created_at: row.get(2usize)?,
+                    })
+                })?;
+                rows.collect()
             })
             .await
             .map_err(|e| Error::Sqlite(e, "storing mail"))
@@ -38,11 +75,28 @@ impl MailStorage {
             .directory
             .join(Path::new(&format!("{}.mail.gz", id.0)))
     }
-
-    pub fn generate_mail_id(&self) -> MailId {
-        MailId(Uuid::new_v4())
-    }
 }
 
-#[derive(Clone, Copy)]
-pub struct MailId(pub Uuid);
+#[derive(Serialize)]
+pub struct StoredMail {
+    pub id: MailId,
+    pub metadata: MailMetadata,
+
+    #[serde(serialize_with = "rfc3339::serialize")]
+    pub created_at: OffsetDateTime,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct MailMetadata {
+    pub from: String,
+    pub to: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct MailId(i64);
+
+impl Display for MailId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        <i64 as Display>::fmt(&self.0, f)
+    }
+}

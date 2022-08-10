@@ -1,12 +1,15 @@
+mod api;
+
 use anyhow::Context as _;
-use axum::{http::StatusCode, routing::get_service, Router};
+use axum::{http::StatusCode, routing::get_service, Extension, Router};
 use axum_extra::routing::SpaRouter;
 use std::net::SocketAddr;
+use storage::Storage;
 use tower::ServiceBuilder;
 use tower_http::{compression::CompressionLayer, services::ServeDir, trace::TraceLayer};
 use tracing::debug;
 
-pub async fn run(http_config: &HttpConfig) -> anyhow::Result<()> {
+pub async fn run(http_config: &HttpConfig, storage: Storage) -> anyhow::Result<()> {
     let static_files_service =
         get_service(ServeDir::new("static")).handle_error(|error: std::io::Error| async move {
             (
@@ -18,10 +21,12 @@ pub async fn run(http_config: &HttpConfig) -> anyhow::Result<()> {
     let app = Router::new()
         .merge(spa)
         .nest("/static", static_files_service)
+        .nest("/api", api::routes())
         .layer(
             ServiceBuilder::new()
                 .layer(TraceLayer::new_for_http())
-                .layer(CompressionLayer::new()),
+                .layer(CompressionLayer::new())
+                .layer(Extension(storage)),
         );
     let addr: SocketAddr = http_config
         .address

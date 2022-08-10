@@ -12,4 +12,7 @@ pub enum Error {
 
     #[error("error while creating directory: {1}")]
     CreateDir(#[source] std::io::Error, std::path::PathBuf),
+
+    #[error("json error: {1}")]
+    Json(#[source] serde_json::Error, &'static str),
 }
