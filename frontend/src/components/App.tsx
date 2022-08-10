@@ -10,6 +10,7 @@ import {
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import EmailWithSidebarView from './EmailWithSidebarView';
 import EmailListView from './EmailListView';
+import { MercuryContext, useMercury } from '../api';
 
 export function AppNav() {
     return (<>
@@ -33,11 +34,14 @@ export function AppContent() {
 }
 
 export default function App() {
+    const mercury = useMercury();
     return (
         <React.Fragment>
             <MantineProvider withGlobalStyles withNormalizeCSS theme={{ colorScheme: 'dark' }}>
                 <BrowserRouter>
-                    <AppContent />
+                    <MercuryContext.Provider value={mercury}>
+                        <AppContent />
+                    </MercuryContext.Provider>
                 </BrowserRouter>
             </MantineProvider>
         </React.Fragment>
