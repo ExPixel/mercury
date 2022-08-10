@@ -15,12 +15,14 @@ use serde::Deserialize;
 use serde_json::{Map, Number, Value};
 use storage::{mail::MailId, Storage};
 use tokio_util::io::ReaderStream;
+use tower_http::cors::CorsLayer;
 use tracing::error;
 
 pub fn routes() -> Router {
     Router::new()
         .route("/mail", get(mail_list))
         .route("/mail/:id/raw", get(raw_mail))
+        .layer(CorsLayer::new())
 }
 
 async fn raw_mail(Path(mail_id): Path<MailId>, storage: Extension<Storage>) -> impl IntoResponse {
