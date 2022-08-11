@@ -15,7 +15,7 @@ import { MercuryContext, useMercury } from '../api';
 export function AppNav() {
     return (<>
         <Navbar.Section mt='xs'>[ HEADER ]</Navbar.Section>
-        <Navbar.Section grow mt='md'>
+        <Navbar.Section grow mt='md' sx={{ display: 'flex', flexDirection: 'column' }}>
             <EmailListView />
         </Navbar.Section>
         <Navbar.Section>[ FOOTER ]</Navbar.Section>

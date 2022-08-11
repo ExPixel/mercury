@@ -7,7 +7,7 @@ use std::{
 
 use mail::HeaderMap;
 use serde::{Deserialize, Serialize};
-use time::{serde::rfc3339, OffsetDateTime};
+use time::{serde::iso8601, OffsetDateTime};
 
 use crate::{
     error::{Error, Result},
@@ -82,7 +82,8 @@ impl MailStorage {
 pub struct StoredMail {
     pub id: MailId,
     pub headers: HeaderMap,
-    #[serde(serialize_with = "rfc3339::serialize")]
+
+    #[serde(serialize_with = "iso8601::serialize")]
     pub created_at: OffsetDateTime,
 }
 
