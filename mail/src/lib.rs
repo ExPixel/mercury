@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+mod header;
+
 use std::ops::Range;
 
 #[allow(dead_code)]
