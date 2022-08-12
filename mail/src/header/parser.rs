@@ -139,7 +139,7 @@ fn quoted_string(i: &[u8]) -> IResult<&[u8], &[u8]> {
         opt(cfws),
         delimited(
             char('"'),
-            recognize(many0_count(preceded(opt(fwsl), qcontent))),
+            recognize(many0_count(preceded(opt(fws), qcontent))),
             char('"'),
         ),
         opt(cfws),
