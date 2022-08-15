@@ -1,19 +1,41 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+mod optional;
+
 use nom::{
     branch::alt,
     bytes::complete::tag,
     character::complete::{char, crlf, one_of, satisfy},
     combinator::{opt, recognize},
-    multi::{many0_count, many1_count},
-    sequence::{delimited, pair, preceded, terminated},
+    multi::{fold_many0, many0_count, many1_count},
+    sequence::{delimited, pair, preceded, terminated, tuple},
     IResult,
 };
 
-use super::HeaderMap;
+use self::optional::optional_field;
 
-fn headers(i: &[u8]) -> Result<HeaderMap, ()> {
-    todo!();
+use super::{HeaderMap, InvalidHeaderMap};
+
+pub fn headers(i: &[u8]) -> Result<(&[u8], HeaderMap), InvalidHeaderMap> {
+    terminated(
+        fold_many0(
+            optional_field,
+            HeaderMap::default,
+            |mut map, (name, value)| {
+                let name = std::str::from_utf8(name)
+                    .expect("field name not valid UTF8")
+                    .to_owned();
+                let value = std::str::from_utf8(value)
+                    .expect("value not valid UTF8")
+                    .trim_matches(|ch: char| ch.is_ascii() && ch.is_whitespace())
+                    .replace("\r\n", "");
+                map.insert(name, value);
+                map
+            },
+        ),
+        crlf,
+    )(i)
+    .map_err(|_| InvalidHeaderMap {})
 }
 
 /// FWS = ([*WSP CRLF] 1*WSP) /  obs-FWS
@@ -126,14 +148,21 @@ fn quoted_pair(i: &[u8]) -> IResult<&[u8], char> {
     alt((preceded(char('\\'), alt((vchar, wsp))), obs_qp))(i)
 }
 
+/// obs-qp = "\" (%d0 / obs-NO-WS-CTL / LF / CR)
+fn obs_qp(i: &[u8]) -> IResult<&[u8], char> {
+    preceded(char('\\'), alt((one_of("\0\r\n"), obs_no_ws_ctl)))(i)
+}
+
 /// qcontent = qtext / quoted-pair
 fn qcontent(i: &[u8]) -> IResult<&[u8], char> {
     alt((qtext, quoted_pair))(i)
 }
 
+/// ```norun
 /// quoted-string = [CFWS]
 ///                 DQUOTE *([FWS] qcontent) [FWS] DQUOTE
 ///                 [CFWS]
+/// ```
 fn quoted_string(i: &[u8]) -> IResult<&[u8], &[u8]> {
     delimited(
         opt(cfws),
@@ -146,9 +175,41 @@ fn quoted_string(i: &[u8]) -> IResult<&[u8], &[u8]> {
     )(i)
 }
 
-/// obs-qp = "\" (%d0 / obs-NO-WS-CTL / LF / CR)
-fn obs_qp(i: &[u8]) -> IResult<&[u8], char> {
-    preceded(char('\\'), alt((one_of("\0\r\n"), obs_no_ws_ctl)))(i)
+/// word = atom / quoted-string
+fn word(i: &[u8]) -> IResult<&[u8], &[u8]> {
+    alt((atom, quoted_string))(i)
+}
+
+/// phrase = 1*word / obs-phrase
+fn phrase(i: &[u8]) -> IResult<&[u8], &[u8]> {
+    alt((recognize(many1_count(word)), obs_phrase))(i)
+}
+
+/// obs-phrase = word *(word / "." / CFWS)
+fn obs_phrase(i: &[u8]) -> IResult<&[u8], &[u8]> {
+    recognize(pair(word, many0_count(alt((word, tag("."), cfws)))))(i)
+}
+
+/// `unstructured = (*([FWS] VCHAR) *WSP) / obs-unstruct`
+fn unstructured(i: &[u8]) -> IResult<&[u8], &[u8]> {
+    let current = recognize(pair(many0_count(pair(opt(fws), vchar)), many0_count(wsp)));
+    alt((current, obs_unstruct))(i)
+}
+
+/// obs-unstruct = *((*LF *CR *(obs-utext *LF *CR)) / FWS)
+fn obs_unstruct(i: &[u8]) -> IResult<&[u8], &[u8]> {
+    recognize(many0_count(alt((
+        recognize(tuple((
+            many0_count(char('\n')),
+            many0_count(char('\r')),
+            many0_count(tuple((
+                obs_utext,
+                many0_count(char('\n')),
+                many0_count(char('\r')),
+            ))),
+        ))),
+        fws,
+    ))))(i)
 }
 
 /// obs-NO-WS-CTL =   %d1-8 /            ; US-ASCII control
@@ -158,6 +219,11 @@ fn obs_qp(i: &[u8]) -> IResult<&[u8], char> {
 ///                   %d127              ;  white space characters
 fn obs_no_ws_ctl(i: &[u8]) -> IResult<&[u8], char> {
     satisfy(|ch: char| ch.is_ascii() && is_obs_no_ws_ctl(ch as u8))(i)
+}
+
+/// obs-utext       =   %d0 / obs-NO-WS-CTL / VCHAR
+fn obs_utext(i: &[u8]) -> IResult<&[u8], char> {
+    satisfy(|ch: char| ch.is_ascii() && is_obs_utext(ch as u8))(i)
 }
 
 /// WSP = SPACE | HTAB
@@ -193,6 +259,11 @@ fn is_obs_ctext(ch: u8) -> bool {
 /// obs-qtext = obs-NO-WS-CTL
 fn is_obs_qtext(ch: u8) -> bool {
     is_obs_no_ws_ctl(ch)
+}
+
+/// see: [`obs_utext`]
+fn is_obs_utext(ch: u8) -> bool {
+    ch == 0 || is_obs_no_ws_ctl(ch) || is_vchar(ch)
 }
 
 /// see: [`obs_no_ws_ctl`]

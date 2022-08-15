@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-mod header;
+pub mod header;
 
 use std::ops::Range;
+
+pub use header::HeaderMap;
 
 #[allow(dead_code)]
 mod parser;
@@ -18,7 +20,7 @@ pub struct SinglePart {
 }
 
 pub struct MultiPart {
-    header: Header,
+    header: HeaderMap,
     body: Range<usize>,
     parts: Vec<Entity>,
 }
@@ -29,5 +31,3 @@ pub enum Part {
     Single(SinglePart),
     Multi(MultiPart),
 }
-
-pub struct Header {}

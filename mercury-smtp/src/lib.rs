@@ -7,7 +7,7 @@ use async_compression::tokio::write::GzipEncoder;
 use smtp_server::RawMail;
 use storage::{mail::MailMetadata, Storage};
 use tokio::{io::AsyncWriteExt, sync::mpsc};
-use tracing::{debug, error, warn};
+use tracing::{debug, error, info, warn};
 
 pub async fn run(config: &SmtpConfig, storage: Storage) -> anyhow::Result<()> {
     let (new_mail_tx, new_mail_rx) = mpsc::unbounded_channel();
@@ -39,6 +39,11 @@ async fn new_mail_processing_task(mut rx: mpsc::UnboundedReceiver<RawMail>, stor
 async fn process_new_mail(raw_mail: RawMail, storage: &Storage) -> anyhow::Result<()> {
     let byte_size = raw_mail.data.len();
     tracing::debug!(bytes = byte_size, "received mail");
+
+    let (data, headers) = mail::HeaderMap::parse(&raw_mail.data)
+        .map_err(|_| anyhow::Error::msg("failed to parse mail headers"))?;
+
+    info!(headers = debug(headers), "parsed mail headers");
 
     let metadata = MailMetadata {
         from: raw_mail.reverse_path,
