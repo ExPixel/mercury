@@ -9,3 +9,4 @@ description = "A parser for the internet message format or email (RFC 5322)"
 [dependencies]
 thiserror = "1"
 nom = "7"
+serde = { version = "1", default-features = false, features = ["std", "derive"] }

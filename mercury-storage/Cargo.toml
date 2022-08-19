@@ -14,3 +14,4 @@ tracing = { version = "0.1", default-features = false, features = ["std"] }
 time = { version = "0.3", default-features = false, features = ["std", "serde", "serde-well-known"] }
 crossbeam = { version = "0.8", default-features = false, features = ["std", "crossbeam-channel"] }
 serde_json = { version = "1", default-features = false, features = ["std"] }
+mail = { path = "../mail" }

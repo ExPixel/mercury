@@ -4,10 +4,11 @@ use std::path::Path;
 
 use anyhow::Context as _;
 use async_compression::tokio::write::GzipEncoder;
+use mail::header::KNOWN_HEADERS;
 use smtp_server::RawMail;
-use storage::{mail::MailMetadata, Storage};
+use storage::Storage;
 use tokio::{io::AsyncWriteExt, sync::mpsc};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, warn};
 
 pub async fn run(config: &SmtpConfig, storage: Storage) -> anyhow::Result<()> {
     let (new_mail_tx, new_mail_rx) = mpsc::unbounded_channel();
@@ -40,19 +41,19 @@ async fn process_new_mail(raw_mail: RawMail, storage: &Storage) -> anyhow::Resul
     let byte_size = raw_mail.data.len();
     tracing::debug!(bytes = byte_size, "received mail");
 
-    let (data, headers) = mail::HeaderMap::parse(&raw_mail.data)
+    let (_data, headers) = mail::HeaderMap::parse(&raw_mail.data)
         .map_err(|_| anyhow::Error::msg("failed to parse mail headers"))?;
+    let mut known_headers = mail::HeaderMap::default();
 
-    info!(headers = debug(headers), "parsed mail headers");
-
-    let metadata = MailMetadata {
-        from: raw_mail.reverse_path,
-        to: raw_mail.forward_path,
-    };
+    for header_name in KNOWN_HEADERS {
+        if let Some(value) = headers.get(header_name) {
+            known_headers.insert(header_name, value.to_owned());
+        }
+    }
 
     let mail_id = storage
         .mail
-        .store_mail_metadata(&metadata)
+        .store_mail_headers(&known_headers)
         .await
         .context("error occurred while storing mail metadata")?;
     debug!(id = debug(mail_id), "mail metadata stored");

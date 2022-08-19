@@ -5,6 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use mail::HeaderMap;
 use serde::{Deserialize, Serialize};
 use time::{serde::rfc3339, OffsetDateTime};
 
@@ -26,17 +27,15 @@ impl MailStorage {
         MailStorage { sql, config }
     }
 
-    pub async fn store_mail_metadata(&self, metadata: &MailMetadata) -> Result<MailId> {
-        let metadata_json = serde_json::to_string(metadata)
-            .map_err(|e| Error::Json(e, "serializing mail metadata"))?;
+    pub async fn store_mail_headers(&self, headers: &HeaderMap) -> Result<MailId> {
+        let headers_json = serde_json::to_string(headers)
+            .map_err(|e| Error::Json(e, "serializing mail headers"))?;
         self.sql
             .with::<SqliteResult<MailId>, _>(move |conn| {
-                let sql = "INSERT INTO mail (metadata, created_at) VALUES (?, ?) RETURNING id;";
+                let sql = "INSERT INTO mail (headers, created_at) VALUES (?, ?) RETURNING id;";
                 let mut statement = conn.prepare_cached(sql)?;
                 statement
-                    .query_row((metadata_json, OffsetDateTime::now_utc()), |r| {
-                        r.get(0usize)
-                    })
+                    .query_row((headers_json, OffsetDateTime::now_utc()), |r| r.get(0usize))
                     .map(MailId)
             })
             .await
@@ -48,11 +47,11 @@ impl MailStorage {
         self.sql
             .with::<SqliteResult<Vec<StoredMail>>, _>(move |conn| {
                 let sql =
-                    "SELECT id, metadata, created_at FROM mail WHERE id > ? ORDER BY id LIMIT ?;";
+                    "SELECT id, headers, created_at FROM mail WHERE id > ? ORDER BY id LIMIT ?;";
                 let mut statement = conn.prepare_cached(sql)?;
                 let rows = statement.query_map((after, max as i64), |row| {
-                    let metadata = row.get::<_, String>(1usize)?;
-                    let metadata = serde_json::from_str(&metadata).map_err(|e| {
+                    let headers_json = row.get::<_, String>(1usize)?;
+                    let headers = serde_json::from_str(&headers_json).map_err(|e| {
                         rusqlite::Error::FromSqlConversionFailure(
                             1,
                             rusqlite::types::Type::Text,
@@ -62,14 +61,14 @@ impl MailStorage {
 
                     Ok(StoredMail {
                         id: MailId(row.get(0usize)?),
-                        metadata,
+                        headers,
                         created_at: row.get(2usize)?,
                     })
                 })?;
                 rows.collect()
             })
             .await
-            .map_err(|e| Error::Sqlite(e, "storing mail"))
+            .map_err(|e| Error::Sqlite(e, "fetching mail headers"))
     }
 
     pub fn mail_file_path(&self, id: MailId) -> PathBuf {
@@ -82,16 +81,9 @@ impl MailStorage {
 #[derive(Serialize)]
 pub struct StoredMail {
     pub id: MailId,
-    pub metadata: MailMetadata,
-
+    pub headers: HeaderMap,
     #[serde(serialize_with = "rfc3339::serialize")]
     pub created_at: OffsetDateTime,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct MailMetadata {
-    pub from: String,
-    pub to: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]

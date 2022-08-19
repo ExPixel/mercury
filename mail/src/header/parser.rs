@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#![allow(dead_code)]
 
+mod address;
 mod optional;
 
 use nom::{
@@ -35,7 +37,7 @@ pub fn headers(i: &[u8]) -> Result<(&[u8], HeaderMap), InvalidHeaderMap> {
         ),
         crlf,
     )(i)
-    .map_err(|_| InvalidHeaderMap {})
+    .map_err(|_| InvalidHeaderMap::default())
 }
 
 /// FWS = ([*WSP CRLF] 1*WSP) /  obs-FWS

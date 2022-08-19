@@ -66,7 +66,7 @@ fn record_migration_done(conn: &mut Connection, migration: &Migration) -> rusqli
 }
 
 fn create_mail_table(conn: &mut Connection) -> rusqlite::Result<()> {
-    let sql = "CREATE TABLE mail (id INTEGER PRIMARY KEY, metadata TEXT, created_at TEXT);";
+    let sql = "CREATE TABLE mail (id INTEGER PRIMARY KEY, headers TEXT, created_at TEXT);";
     let mut statement = conn.prepare(sql)?;
     statement.execute(())?;
     Ok(())

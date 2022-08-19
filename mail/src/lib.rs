@@ -15,14 +15,14 @@ pub enum Entity {
 }
 
 pub struct SinglePart {
-    encoding: Encoding,
-    body: Range<usize>,
+    pub encoding: Encoding,
+    pub body: Range<usize>,
 }
 
 pub struct MultiPart {
-    header: HeaderMap,
-    body: Range<usize>,
-    parts: Vec<Entity>,
+    pub header: HeaderMap,
+    pub body: Range<usize>,
+    pub parts: Vec<Entity>,
 }
 
 pub enum Encoding {}
