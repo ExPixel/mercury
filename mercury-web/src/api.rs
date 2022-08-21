@@ -14,6 +14,7 @@ use mail::{header::typed, HeaderMap};
 use serde::Deserialize;
 use serde_json::{Map, Number, Value};
 use storage::{mail::MailId, Storage};
+use time::format_description::well_known::Iso8601;
 use tokio_util::io::ReaderStream;
 use tower_http::cors::CorsLayer;
 use tracing::error;
@@ -48,7 +49,7 @@ async fn raw_mail(Path(mail_id): Path<MailId>, storage: Extension<Storage>) -> i
 #[derive(Deserialize)]
 struct MailListQuery {
     max: Option<usize>,
-    after: Option<MailId>,
+    before: Option<MailId>,
 }
 
 async fn mail_list(
@@ -58,7 +59,7 @@ async fn mail_list(
     let max = params.max.unwrap_or(32);
     let list = storage
         .mail
-        .get_mail(max, params.after)
+        .get_mail(max, params.before)
         .await
         .map_err(|err| {
             let err = anyhow::Error::from(err);
@@ -75,14 +76,15 @@ async fn mail_list(
         let mut item = Map::<String, Value>::with_capacity(16);
         item.insert("id".to_owned(), Number::from(i64::from(mail.id)).into());
 
-        let created_at = serde_json::to_value(mail.created_at).map_err(|err| {
-            let err = anyhow::Error::from(err);
-            error!("error while serializing created_at: {err:?}");
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "error occurred while fetching list",
-            )
-        })?;
+        let created_at =
+            Value::String(mail.created_at.format(&Iso8601::DEFAULT).map_err(|err| {
+                let err = anyhow::Error::from(err);
+                error!("error while formatting created_at: {err:?}");
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "error occurred while fetching list",
+                )
+            })?);
         item.insert("created_at".to_owned(), created_at);
 
         if let Err(err) = serialize_mail_item_headers(&mail.headers, &mut item) {

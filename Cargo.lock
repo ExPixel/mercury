@@ -661,6 +661,7 @@ dependencies = [
  "mercury-storage",
  "serde",
  "serde_json",
+ "time",
  "tokio",
  "tokio-util",
  "tower",
@@ -1006,7 +1007,6 @@ dependencies = [
  "itoa",
  "libc",
  "num_threads",
- "serde",
  "time-macros",
 ]
 

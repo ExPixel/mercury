@@ -7,7 +7,7 @@ use std::{
 
 use mail::HeaderMap;
 use serde::{Deserialize, Serialize};
-use time::{serde::iso8601, OffsetDateTime};
+use time::OffsetDateTime;
 
 use crate::{
     error::{Error, Result},
@@ -42,14 +42,14 @@ impl MailStorage {
             .map_err(|e| Error::Sqlite(e, "storing mail"))
     }
 
-    pub async fn get_mail(&self, max: usize, after: Option<MailId>) -> Result<Vec<StoredMail>> {
-        let after = after.map(|mid| mid.0).unwrap_or(-1);
+    pub async fn get_mail(&self, max: usize, before: Option<MailId>) -> Result<Vec<StoredMail>> {
+        let before = before.map(|mid| mid.0).unwrap_or(i64::MAX);
         self.sql
             .with::<SqliteResult<Vec<StoredMail>>, _>(move |conn| {
                 let sql =
-                    "SELECT id, headers, created_at FROM mail WHERE id > ? ORDER BY id LIMIT ?;";
+                    "SELECT id, headers, created_at FROM mail WHERE id < ? ORDER BY id DESC LIMIT ?;";
                 let mut statement = conn.prepare_cached(sql)?;
-                let rows = statement.query_map((after, max as i64), |row| {
+                let rows = statement.query_map((before, max as i64), |row| {
                     let headers_json = row.get::<_, String>(1usize)?;
                     let headers = serde_json::from_str(&headers_json).map_err(|e| {
                         rusqlite::Error::FromSqlConversionFailure(
@@ -78,12 +78,9 @@ impl MailStorage {
     }
 }
 
-#[derive(Serialize)]
 pub struct StoredMail {
     pub id: MailId,
     pub headers: HeaderMap,
-
-    #[serde(serialize_with = "iso8601::serialize")]
     pub created_at: OffsetDateTime,
 }
 

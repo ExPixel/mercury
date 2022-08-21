@@ -20,3 +20,4 @@ tokio-util = { version = "0.7", default-features = false, features = ["io"] }
 http = "0.2.8"
 async-compression = { version = "0.3", default-features = false, features = ["tokio", "gzip"] }
 mail = { path = "../mail" }
+time = { version = "0.3", default-features = false, features = ["std", "formatting"] }
