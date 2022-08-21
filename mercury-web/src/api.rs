@@ -74,9 +74,23 @@ async fn mail_list(
     for mail in list {
         let mut item = Map::<String, Value>::with_capacity(16);
         item.insert("id".to_owned(), Number::from(i64::from(mail.id)).into());
+
+        let created_at = serde_json::to_value(mail.created_at).map_err(|err| {
+            let err = anyhow::Error::from(err);
+            error!("error while serializing created_at: {err:?}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "error occurred while fetching list",
+            )
+        })?;
+        item.insert("created_at".to_owned(), created_at);
+
         if let Err(err) = serialize_mail_item_headers(&mail.headers, &mut item) {
             error!("error while serializing mail item headers: {err}");
-            continue;
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "error occurred while fetching list",
+            ));
         }
         resp.push(Value::Object(item));
     }
