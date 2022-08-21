@@ -547,6 +547,7 @@ name = "mail"
 version = "0.1.0"
 dependencies = [
  "nom",
+ "serde",
  "thiserror",
 ]
 
@@ -626,6 +627,7 @@ name = "mercury-storage"
 version = "0.1.0"
 dependencies = [
  "crossbeam",
+ "mail",
  "rusqlite",
  "serde",
  "serde_json",
@@ -655,8 +657,10 @@ dependencies = [
  "axum",
  "axum-extra",
  "http",
+ "mail",
  "mercury-storage",
  "serde",
+ "serde_json",
  "tokio",
  "tokio-util",
  "tower",

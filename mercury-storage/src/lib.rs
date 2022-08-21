@@ -4,8 +4,8 @@ mod error;
 pub mod mail;
 mod sqlite;
 
+use self::mail::MailStorage;
 use error::{Error, Result};
-use mail::MailStorage;
 use serde::Deserialize;
 use sqlite::SqliteStorage;
 use std::path::PathBuf;
