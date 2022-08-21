@@ -7,10 +7,6 @@ use nom::{
     IResult,
 };
 
-// fn fws(i: &[u8]) -> IResult<&[u8], &[u8]> {
-//     alt()
-// }
-
 fn quoted_pair(i: &[u8]) -> IResult<&[u8], char> {
     alt((
         preceded(char('\\'), alt((satisfy(is_vchar), satisfy(is_wsp)))),

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 use nom::{
     character::complete::{char, crlf, satisfy},
     combinator::recognize,

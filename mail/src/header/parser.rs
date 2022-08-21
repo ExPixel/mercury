@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+
 #![allow(dead_code)]
 
-mod address;
+pub(crate) mod address;
 mod optional;
 
 use nom::{

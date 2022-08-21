@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 use std::{
     borrow::{Borrow, Cow},
     fmt::{Debug, Display},

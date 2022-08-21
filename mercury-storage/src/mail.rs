@@ -89,6 +89,12 @@ pub struct StoredMail {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct MailId(i64);
 
+impl From<MailId> for i64 {
+    fn from(id: MailId) -> Self {
+        id.0
+    }
+}
+
 impl Display for MailId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         <i64 as Display>::fmt(&self.0, f)

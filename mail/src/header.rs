@@ -2,7 +2,8 @@
 
 mod name;
 mod parser;
-mod typed;
+pub mod parts;
+pub mod typed;
 
 pub use name::HeaderName;
 use serde::{Deserialize, Serialize};
@@ -10,6 +11,8 @@ use std::{
     collections::HashMap,
     fmt::{Debug, Display},
 };
+
+use self::typed::TypedHeader;
 
 #[derive(Default, Serialize, Deserialize)]
 pub struct HeaderMap {
@@ -41,6 +44,10 @@ impl HeaderMap {
         self.inner.get(&key.into()).map(|s| s.as_str())
     }
 
+    pub fn get_typed<T: TypedHeader>(&self) -> Result<Option<T>, T::Error> {
+        self.get(T::NAME).map(|value| T::decode(value)).transpose()
+    }
+
     pub fn iter(&self) -> impl '_ + Iterator<Item = (HeaderName, &String)> {
         self.inner.iter().map(|(k, v)| (HeaderName::from(k), v))
     }
@@ -67,26 +74,36 @@ impl Display for InvalidHeaderMap {
     }
 }
 
-pub static KNOWN_HEADERS: &[HeaderName<'static>] = &[
-    HeaderName::from_static("trace"),
-    HeaderName::from_static("resent-date"),
-    HeaderName::from_static("resent-from"),
-    HeaderName::from_static("resent-sender"),
-    HeaderName::from_static("resent-to"),
-    HeaderName::from_static("resent-cc"),
-    HeaderName::from_static("resent-bcc"),
-    HeaderName::from_static("resent-msg-id"),
-    HeaderName::from_static("orig-date"),
-    HeaderName::from_static("from"),
-    HeaderName::from_static("sender"),
-    HeaderName::from_static("reply-to"),
-    HeaderName::from_static("to"),
-    HeaderName::from_static("cc"),
-    HeaderName::from_static("bcc"),
-    HeaderName::from_static("message-id"),
-    HeaderName::from_static("in-reply-to"),
-    HeaderName::from_static("references"),
-    HeaderName::from_static("subject"),
-    HeaderName::from_static("comments"),
-    HeaderName::from_static("keywords"),
-];
+macro_rules! known_headers {
+    ($(const $ConstName:ident = $string_name:expr),* $(,)?) => {
+        $(pub const $ConstName: HeaderName = HeaderName::from_static($string_name);)*
+
+        pub static KNOWN_HEADERS: &[HeaderName<'static>] = &[
+            $($ConstName),*
+        ];
+    };
+}
+
+known_headers! {
+    const TRACE = "trace",
+    const RESENT_DATE = "resent-date",
+    const RESENT_FROM = "resent-from",
+    const RESENT_SENDER = "resent-sender",
+    const RESENT_TO = "resent-to",
+    const RESENT_CC = "resent-cc",
+    const RESENT_BCC = "resent-bcc",
+    const RESENT_MSG_ID = "resent-msg-id",
+    const ORIG_DATE = "orig-date",
+    const FROM = "from",
+    const SENDER = "sender",
+    const REPLY_TO = "reply-to",
+    const TO = "to",
+    const CC = "cc",
+    const BCC = "bcc",
+    const MESSAGE_ID = "message-id",
+    const IN_REPLY_TO = "in-reply-to",
+    const REFERENCES = "references",
+    const SUBJECT = "subject",
+    const COMMENTS = "comments",
+    const KEYWORDS = "keywords",
+}
