@@ -12,6 +12,7 @@ export default function EmailListView() {
 
     React.useEffect(() => {
         mercury.getMailList().then((mailList) => {
+            console.log('emails', mailList);
             setEmails(mailList);
         });
     }, []);

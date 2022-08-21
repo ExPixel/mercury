@@ -18,12 +18,11 @@ const useStyles = createStyles(() => ({
 export default function EmailListItem(props: EmailCardProps) {
     const { classes } = useStyles();
 
-    const emailFrom = props.email.metadata.from;
-    const emailTo = props.email.metadata.to;
+    const sender = props.email.sender;
     const createdAt = props.email.createdAt;
 
     return <Box className={classes.root}>
-        <Text weight={500}>{emailFrom}</Text>
+        <Text weight={500}>{sender.displayNameOrAddress}</Text>
         <Text size="sm" color="dimmed">
             {formatRelative(createdAt, new Date())}
         </Text>

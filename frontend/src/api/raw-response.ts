@@ -1,7 +1,13 @@
 export interface RawMailListItem {
     id: number;
-    metadata: RawMailMetadata;
     created_at: string;
+    from?: RawMailbox[];
+    sender?: RawMailbox;
+}
+
+export interface RawMailbox {
+    display_name?: string | null;
+    address: string;
 }
 
 export interface RawMailMetadata {
