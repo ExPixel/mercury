@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize)]
-#[serde(tag = "type")]
+#[serde(tag = "type", rename_all = "lowercase")]
 pub enum Address {
     Mailbox(Mailbox),
     Group(Group),
@@ -16,8 +16,8 @@ pub struct Mailbox {
 }
 
 impl Mailbox {
-    pub(crate) fn new_raw(display_name: Option<&[u8]>, address: &[u8]) -> Self {
-        let display_name = std::str::from_utf8(display_name.unwrap_or(&[]))
+    pub(crate) fn new_raw(display_name: Option<Vec<u8>>, address: &[u8]) -> Self {
+        let display_name = String::from_utf8(display_name.unwrap_or_default())
             .expect("display_name not valid UTF8")
             .trim_matches(|ch: char| ch.is_ascii() && ch.is_whitespace())
             .replace("\r\n", "");
@@ -40,8 +40,8 @@ pub struct Group {
 }
 
 impl Group {
-    pub(crate) fn new_raw(display_name: Option<&[u8]>, mailboxes: Vec<Mailbox>) -> Self {
-        let display_name = std::str::from_utf8(display_name.unwrap_or(&[]))
+    pub(crate) fn new_raw(display_name: Option<Vec<u8>>, mailboxes: Vec<Mailbox>) -> Self {
+        let display_name = String::from_utf8(display_name.unwrap_or_default())
             .expect("display_name not valid UTF8")
             .trim_matches(|ch: char| ch.is_ascii() && ch.is_whitespace())
             .replace("\r\n", "");

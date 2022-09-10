@@ -5,14 +5,17 @@
 pub(crate) mod address;
 mod optional;
 
+use std::{borrow::Cow, cell::RefCell, ops::RangeFrom};
+
 use nom::{
     branch::alt,
     bytes::complete::tag,
-    character::complete::{char, crlf, one_of, satisfy},
-    combinator::{opt, recognize},
-    multi::{fold_many0, many0_count, many1_count},
+    character::complete::{char, crlf},
+    combinator::{map, opt, recognize},
+    error::ParseError,
+    multi::{fold_many0, fold_many1, many0_count, many1_count},
     sequence::{delimited, pair, preceded, terminated, tuple},
-    IResult,
+    IResult, InputIter, Slice,
 };
 
 use self::optional::optional_field;
@@ -62,8 +65,8 @@ fn obs_fws(i: &[u8]) -> IResult<&[u8], &[u8]> {
 ///           %d42-91 /          ;  characters not including
 ///           %d93-126 /         ;  "(", ")", or "\"
 ///           obs-ctext
-fn ctext(i: &[u8]) -> IResult<&[u8], char> {
-    satisfy(|ch: char| ch.is_ascii() && is_ctext(ch as u8))(i)
+fn ctext(i: &[u8]) -> IResult<&[u8], u8> {
+    satisfy_u8(is_ctext)(i)
 }
 
 /// ccontent = ctext / quoted-pair / comment
@@ -105,13 +108,13 @@ fn cfws(i: &[u8]) -> IResult<&[u8], &[u8]> {
 ///            "`" / "{" /
 ///            "|" / "}" /
 ///            "~"
-fn atext(i: &[u8]) -> IResult<&[u8], char> {
-    satisfy(|ch: char| ch.is_ascii() && is_atext(ch as u8))(i)
+fn atext(i: &[u8]) -> IResult<&[u8], u8> {
+    satisfy_u8(is_atext)(i)
 }
 
 /// atom = [CFWS] 1*atext [CFWS]
-fn atom(i: &[u8]) -> IResult<&[u8], &[u8]> {
-    delimited(opt(cfws), recognize(many1_count(atext)), opt(cfws))(i)
+fn atom(i: &[u8]) -> IResult<&[u8], Vec<u8>> {
+    delimited(opt(cfws), many1_string(map(atext, |ch| [ch])), opt(cfws))(i)
 }
 
 /// dot-atom-text = 1*atext *("." 1*atext)
@@ -134,30 +137,36 @@ fn dot_atom(i: &[u8]) -> IResult<&[u8], &[u8]> {
 ///            "@" / "\" /
 ///            "," / "." /
 ///            DQUOTE
-fn specials(i: &[u8]) -> IResult<&[u8], char> {
-    satisfy(|ch: char| ch.is_ascii() && is_specials(ch as u8))(i)
+fn specials(i: &[u8]) -> IResult<&[u8], u8> {
+    satisfy_u8(is_specials)(i)
 }
 
 /// qtext = %d33 /     ; Printable US-ASCII
 ///         %d35-91 /  ;  characters not including
 ///         %d93-126 / ;  "\" or the quote character
 ///         obs-qtext
-fn qtext(i: &[u8]) -> IResult<&[u8], char> {
-    satisfy(|ch: char| ch.is_ascii() && is_qtext(ch as u8))(i)
+fn qtext(i: &[u8]) -> IResult<&[u8], u8> {
+    satisfy_u8(is_qtext)(i)
 }
 
 /// quoted-pair = ("\" (VCHAR / WSP)) / obs-qp
-fn quoted_pair(i: &[u8]) -> IResult<&[u8], char> {
-    alt((preceded(char('\\'), alt((vchar, wsp))), obs_qp))(i)
+fn quoted_pair(i: &[u8]) -> IResult<&[u8], u8> {
+    alt((preceded(tag("\\"), alt((vchar, wsp))), obs_qp))(i)
 }
 
 /// obs-qp = "\" (%d0 / obs-NO-WS-CTL / LF / CR)
-fn obs_qp(i: &[u8]) -> IResult<&[u8], char> {
-    preceded(char('\\'), alt((one_of("\0\r\n"), obs_no_ws_ctl)))(i)
+fn obs_qp(i: &[u8]) -> IResult<&[u8], u8> {
+    preceded(
+        byte(b'\\'),
+        alt((
+            satisfy_u8(|ch: u8| ch == 0 || ch == b'\r' || ch == b'\n'),
+            obs_no_ws_ctl,
+        )),
+    )(i)
 }
 
 /// qcontent = qtext / quoted-pair
-fn qcontent(i: &[u8]) -> IResult<&[u8], char> {
+fn qcontent(i: &[u8]) -> IResult<&[u8], u8> {
     alt((qtext, quoted_pair))(i)
 }
 
@@ -166,31 +175,59 @@ fn qcontent(i: &[u8]) -> IResult<&[u8], char> {
 ///                 DQUOTE *([FWS] qcontent) [FWS] DQUOTE
 ///                 [CFWS]
 /// ```
-fn quoted_string(i: &[u8]) -> IResult<&[u8], &[u8]> {
-    delimited(
+fn quoted_string(i: &[u8]) -> IResult<&[u8], Vec<u8>> {
+    let s = RefCell::new(Vec::with_capacity(16));
+    let (i, _) = delimited(
         opt(cfws),
         delimited(
             char('"'),
-            recognize(many0_count(preceded(opt(fws), qcontent))),
+            many0_count(preceded(
+                map(opt(fws), |w| {
+                    if w.is_some() {
+                        s.borrow_mut().push(b' ');
+                    }
+                }),
+                map(qcontent, |q| s.borrow_mut().push(q as u8)),
+            )),
             char('"'),
         ),
         opt(cfws),
-    )(i)
+    )(i)?;
+    Ok((i, s.into_inner()))
 }
 
 /// word = atom / quoted-string
-fn word(i: &[u8]) -> IResult<&[u8], &[u8]> {
+fn word(i: &[u8]) -> IResult<&[u8], Vec<u8>> {
     alt((atom, quoted_string))(i)
 }
 
 /// phrase = 1*word / obs-phrase
-fn phrase(i: &[u8]) -> IResult<&[u8], &[u8]> {
-    alt((recognize(many1_count(word)), obs_phrase))(i)
+fn phrase(i: &[u8]) -> IResult<&[u8], Vec<u8>> {
+    alt((
+        fold_many1(word, Vec::new, |mut s, w| {
+            if s.is_empty() {
+                w
+            } else {
+                s.extend(w);
+                s
+            }
+        }),
+        map(obs_phrase, |o| o),
+    ))(i)
 }
 
 /// obs-phrase = word *(word / "." / CFWS)
-fn obs_phrase(i: &[u8]) -> IResult<&[u8], &[u8]> {
-    recognize(pair(word, many0_count(alt((word, tag("."), cfws)))))(i)
+fn obs_phrase(i: &[u8]) -> IResult<&[u8], Vec<u8>> {
+    let (i, mut s) = word(i)?;
+    let (i, _) = many0_count(map(
+        alt((
+            map(word, Cow::Owned),
+            map(tag("."), |_| Cow::Borrowed(&b"."[..])),
+            map(cfws, |_| Cow::Borrowed(&b""[..])),
+        )),
+        |w| s.extend(&*w),
+    ))(i)?;
+    Ok((i, s))
 }
 
 /// `unstructured = (*([FWS] VCHAR) *WSP) / obs-unstruct`
@@ -220,23 +257,23 @@ fn obs_unstruct(i: &[u8]) -> IResult<&[u8], &[u8]> {
 ///                   %d12 /             ;  include the carriage
 ///                   %d14-31 /          ;  return, line feed, and
 ///                   %d127              ;  white space characters
-fn obs_no_ws_ctl(i: &[u8]) -> IResult<&[u8], char> {
-    satisfy(|ch: char| ch.is_ascii() && is_obs_no_ws_ctl(ch as u8))(i)
+fn obs_no_ws_ctl(i: &[u8]) -> IResult<&[u8], u8> {
+    satisfy_u8(is_obs_no_ws_ctl)(i)
 }
 
 /// obs-utext       =   %d0 / obs-NO-WS-CTL / VCHAR
-fn obs_utext(i: &[u8]) -> IResult<&[u8], char> {
-    satisfy(|ch: char| ch.is_ascii() && is_obs_utext(ch as u8))(i)
+fn obs_utext(i: &[u8]) -> IResult<&[u8], u8> {
+    satisfy_u8(is_obs_utext)(i)
 }
 
 /// WSP = SPACE | HTAB
-fn wsp(i: &[u8]) -> IResult<&[u8], char> {
-    one_of(" \t")(i)
+fn wsp(i: &[u8]) -> IResult<&[u8], u8> {
+    satisfy_u8(|ch: u8| ch == b' ' || ch == b'\t')(i)
 }
 
 /// VCHAR = %x21-7E ; visible (printing) characters
-fn vchar(i: &[u8]) -> IResult<&[u8], char> {
-    satisfy(|ch: char| ch.is_ascii() && is_vchar(ch as u8))(i)
+fn vchar(i: &[u8]) -> IResult<&[u8], u8> {
+    satisfy_u8(is_vchar)(i)
 }
 
 /// VCHAR = %x21-7E ; visible (printing) characters
@@ -284,4 +321,56 @@ fn is_atext(ch: u8) -> bool {
 fn is_specials(ch: u8) -> bool {
     const SPECIALS: &[u8] = b"()<>[]:;@\\,.\"";
     SPECIALS.contains(&ch)
+}
+
+pub(crate) fn byte<I, Error: ParseError<I>>(c: u8) -> impl Fn(I) -> IResult<I, u8, Error>
+where
+    I: Slice<RangeFrom<usize>> + InputIter,
+    <I as InputIter>::Item: Into<u8>,
+{
+    move |i: I| match (i).iter_elements().next().map(|t| {
+        let b = t.into() == c;
+        (&c, b)
+    }) {
+        Some((c, true)) => Ok((i.slice(1..), *c)),
+        _ => Err(nom::Err::Error(Error::from_char(i, c as char))),
+    }
+}
+
+pub(crate) fn satisfy_u8<F, I, Error: ParseError<I>>(cond: F) -> impl Fn(I) -> IResult<I, u8, Error>
+where
+    I: Slice<RangeFrom<usize>> + InputIter,
+    <I as InputIter>::Item: Into<u8>,
+    F: Fn(u8) -> bool,
+{
+    move |i: I| match (i).iter_elements().next().map(|t| {
+        let c = t.into();
+        let b = cond(c);
+        (c, b)
+    }) {
+        Some((c, true)) => Ok((i.slice(1..), c)),
+        _ => Err(nom::Err::Error(Error::from_error_kind(
+            i,
+            nom::error::ErrorKind::Satisfy,
+        ))),
+    }
+}
+
+pub(crate) fn many1_string<I, O, E, F>(mut f: F) -> impl FnMut(I) -> IResult<I, Vec<u8>, E>
+where
+    I: Clone + nom::InputLength,
+    F: nom::Parser<I, O, E>,
+    O: AsRef<[u8]>,
+    E: nom::error::ParseError<I>,
+{
+    move |i| {
+        fold_many1(
+            |i| f.parse(i),
+            Vec::new,
+            |mut acc, s| {
+                acc.extend(s.as_ref());
+                acc
+            },
+        )(i)
+    }
 }
