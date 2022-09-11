@@ -1,12 +1,22 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import { Box, Loader, Text } from '@mantine/core';
+import { Box, Loader, ScrollArea, Text, createStyles } from '@mantine/core';
 import * as React from 'react';
 import { useMercury } from '../api';
 import { MailListItem } from '../api/response';
 import EmailList from './EmailList';
 
+const useStyles = createStyles(() => ({
+    scroll: {
+        '& > div > div': {
+            display: 'flex !important',
+            flexDirection: 'column',
+        }
+    },
+}));
+
 export default function EmailListView() {
+    const { classes } = useStyles();
     const mercury = useMercury();
     const [emails, setEmails] = React.useState<MailListItem[]>();
 
@@ -18,12 +28,9 @@ export default function EmailListView() {
     }, []);
 
     if (!!emails) {
-        return <Box sx={{
-            display: 'flex',
-            flexDirection: 'column',
-        }}>
+        return <ScrollArea className={classes.scroll} offsetScrollbars type="auto">
             <EmailList emails={emails} />
-        </Box>;
+        </ScrollArea >;
     } else {
         return <Box sx={{
             display: 'flex',
