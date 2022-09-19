@@ -1,10 +1,8 @@
 {
     "compilerOptions": {
         "noImplicitAny": true,
-        "isolatedModules": true,
         "esModuleInterop": true,
         "moduleResolution": "node",
-        "baseUrl": "frontend/src/",
         "rootDir": "frontend/src/",
         "jsx": "react",
         "target": "ES2015",

@@ -3,16 +3,19 @@
 use nom::{
     branch::alt,
     bytes::complete::tag,
-    character::complete::{char, satisfy},
+    character::complete::char,
     combinator::{map, opt, recognize},
-    multi::{many0_count, many1_count, separated_list1},
+    multi::{fold_many0, many0_count, many1_count, separated_list1},
     sequence::{delimited, pair, preceded, separated_pair, terminated, tuple},
     IResult,
 };
 
 use crate::header::parts::{Address, Group, Mailbox};
 
-use super::{atom, cfws, dot_atom, fws, obs_no_ws_ctl, phrase, quoted_pair, quoted_string, word};
+use super::{
+    atom, byte, cfws, dot_atom, fws, obs_no_ws_ctl, phrase, quoted_pair, quoted_string, satisfy_u8,
+    word,
+};
 
 pub fn address(i: &[u8]) -> IResult<&[u8], Address> {
     alt((map(mailbox, Address::Mailbox), map(group, Address::Group)))(i)
@@ -62,7 +65,7 @@ pub fn obs_addr_list(i: &[u8]) -> IResult<&[u8], Vec<Address>> {
 }
 
 #[allow(clippy::type_complexity)]
-fn name_addr(i: &[u8]) -> IResult<&[u8], (Option<&[u8]>, &[u8])> {
+fn name_addr(i: &[u8]) -> IResult<&[u8], (Option<Vec<u8>>, &[u8])> {
     pair(opt(display_name), angle_addr)(i)
 }
 
@@ -125,7 +128,7 @@ fn obs_group_list(i: &[u8]) -> IResult<&[u8], Vec<Mailbox>> {
     map(ws, |_| Vec::new())(i)
 }
 
-fn display_name(i: &[u8]) -> IResult<&[u8], &[u8]> {
+fn display_name(i: &[u8]) -> IResult<&[u8], Vec<u8>> {
     phrase(i)
 }
 
@@ -134,13 +137,21 @@ fn addr_spec(i: &[u8]) -> IResult<&[u8], &[u8]> {
 }
 
 // local-part = dot-atom / quoted-string / obs-local-part
-fn local_part(i: &[u8]) -> IResult<&[u8], &[u8]> {
-    alt((dot_atom, quoted_string, obs_local_part))(i)
+fn local_part(i: &[u8]) -> IResult<&[u8], Vec<u8>> {
+    alt((map(dot_atom, |s| s.to_vec()), quoted_string, obs_local_part))(i)
 }
 
 /// obs-local-part = word *("." word)
-fn obs_local_part(i: &[u8]) -> IResult<&[u8], &[u8]> {
-    recognize(pair(word, many0_count(preceded(char('.'), word))))(i)
+fn obs_local_part(i: &[u8]) -> IResult<&[u8], Vec<u8>> {
+    let (i, mut out) = word(i)?;
+    fold_many0(
+        preceded(byte(b'.'), word),
+        move || std::mem::take(&mut out),
+        |mut acc, s| {
+            acc.extend(s.into_iter());
+            acc
+        },
+    )(i)
 }
 
 // domain = dot-atom / domain-literal / obs-domain
@@ -162,13 +173,13 @@ fn domain_literal(i: &[u8]) -> IResult<&[u8], &[u8]> {
 ///dtext = %d33-90 /          ; Printable US-ASCII
 ///        %d94-126 /         ;  characters not including
 ///        obs-dtext          ;  "[", "]", or "\"
-fn dtext(i: &[u8]) -> IResult<&[u8], char> {
-    let current = satisfy(|ch: char| ch.is_ascii() && is_dtext(ch as u8));
+fn dtext(i: &[u8]) -> IResult<&[u8], u8> {
+    let current = satisfy_u8(is_dtext);
     alt((current, obs_dtext))(i)
 }
 
 /// obs-dtext = obs-NO-WS-CTL / quoted-pair
-fn obs_dtext(i: &[u8]) -> IResult<&[u8], char> {
+fn obs_dtext(i: &[u8]) -> IResult<&[u8], u8> {
     alt((obs_no_ws_ctl, quoted_pair))(i)
 }
 

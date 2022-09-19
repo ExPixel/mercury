@@ -11,7 +11,7 @@ use nom::{
 use super::{unstructured, wsp};
 
 /// optional-field = field-name ":" unstructured CRLF
-pub fn optional_field(i: &[u8]) -> IResult<&[u8], (&[u8], &[u8])> {
+pub fn optional_field(i: &[u8]) -> IResult<&[u8], (&[u8], Vec<u8>)> {
     terminated(
         separated_pair(field_name, pair(many0_count(wsp), char(':')), unstructured),
         crlf,
