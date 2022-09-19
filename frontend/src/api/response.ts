@@ -1,11 +1,19 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 import { RawAddress, RawAddressType, RawGroup, RawMailbox, RawMailListItem, RawMailMetadata } from "./raw-response";
 import { parseISO } from 'date-fns';
+
+export enum DisplayMode {
+    Short,
+    Long,
+}
 
 export class MailListItem {
     public id: number;
     public createdAt: Date;
     public from: Mailbox[];
     public to: (Mailbox | Group)[];
+    public subject: string;
     #sender?: Mailbox;
 
     constructor(raw: RawMailListItem) {
@@ -13,6 +21,7 @@ export class MailListItem {
         this.createdAt = parseISO(raw.created_at);
         this.from = raw.from ? raw.from.map(f => new Mailbox(f)) : [];
         this.to = raw.to.map(t => t.type === RawAddressType.Mailbox ? new Mailbox(t) : new Group(t));
+        this.subject = raw.subject;
         this.#sender = raw.sender ? new Mailbox(raw.sender) : undefined;
     }
 
@@ -55,9 +64,15 @@ export class Mailbox extends Object {
         this.address = raw.address;
     }
 
-    public override toString(): string {
+    public override toString(displayMode: DisplayMode = DisplayMode.Short): string {
         const d = this.displayName && this.displayName.length > 0;
-        return (d ? this.displayName + ' <' : '<') + this.address + '>';
+        if (displayMode === DisplayMode.Long) {
+            return (d ? this.displayName + ' <' : '<') + this.address + '>';
+        } else if (d) {
+            return this.displayName;
+        } else {
+            return this.address;
+        }
     }
 }
 

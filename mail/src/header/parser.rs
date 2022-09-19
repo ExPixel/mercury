@@ -5,7 +5,11 @@
 pub(crate) mod address;
 mod optional;
 
-use std::{borrow::Cow, cell::RefCell, ops::RangeFrom};
+use std::{
+    borrow::Cow,
+    cell::{Cell, RefCell},
+    ops::RangeFrom,
+};
 
 use nom::{
     branch::alt,
@@ -31,7 +35,7 @@ pub fn headers(i: &[u8]) -> Result<(&[u8], HeaderMap), InvalidHeaderMap> {
                 let name = std::str::from_utf8(name)
                     .expect("field name not valid UTF8")
                     .to_owned();
-                let value = std::str::from_utf8(value)
+                let value = String::from_utf8(value)
                     .expect("value not valid UTF8")
                     .trim_matches(|ch: char| ch.is_ascii() && ch.is_whitespace())
                     .replace("\r\n", "");
@@ -231,25 +235,67 @@ fn obs_phrase(i: &[u8]) -> IResult<&[u8], Vec<u8>> {
 }
 
 /// `unstructured = (*([FWS] VCHAR) *WSP) / obs-unstruct`
-fn unstructured(i: &[u8]) -> IResult<&[u8], &[u8]> {
-    let current = recognize(pair(many0_count(pair(opt(fws), vchar)), many0_count(wsp)));
-    alt((current, obs_unstruct))(i)
+pub fn unstructured(i: &[u8]) -> IResult<&[u8], Vec<u8>> {
+    // let current = pair(many0_count(pair(opt(fws), vchar)), many0_count(wsp));
+    let whitespace = Cell::new(false);
+    let current = terminated(
+        fold_many0(
+            preceded(
+                map(opt(fws), |w| {
+                    if w.is_some() {
+                        whitespace.set(true);
+                    }
+                }),
+                vchar,
+            ),
+            Vec::new,
+            |mut acc, c| {
+                if whitespace.replace(false) {
+                    acc.push(b' ');
+                }
+                acc.push(c);
+                acc
+            },
+        ),
+        many0_count(wsp),
+    );
+
+    let ret = alt((current, obs_unstruct))(i);
+    let _extend_lifetime = whitespace; // FIXME ??? this is mostly to shut clippy up, but ret required for compiler
+    ret
 }
 
 /// obs-unstruct = *((*LF *CR *(obs-utext *LF *CR)) / FWS)
-fn obs_unstruct(i: &[u8]) -> IResult<&[u8], &[u8]> {
-    recognize(many0_count(alt((
-        recognize(tuple((
-            many0_count(char('\n')),
-            many0_count(char('\r')),
-            many0_count(tuple((
-                obs_utext,
-                many0_count(char('\n')),
-                many0_count(char('\r')),
-            ))),
-        ))),
-        fws,
-    ))))(i)
+fn obs_unstruct(i: &[u8]) -> IResult<&[u8], Vec<u8>> {
+    let mut out = Vec::new();
+    let whitespace = Cell::new(false);
+    let mark_ws = |c: usize| {
+        if c > 0 {
+            whitespace.set(true)
+        }
+    };
+
+    let (i, _) = many0_count(alt((
+        map(
+            tuple((
+                map(many0_count(char('\n')), mark_ws),
+                map(many0_count(char('\r')), mark_ws),
+                many0_count(tuple((
+                    map(obs_utext, |c| {
+                        if whitespace.replace(false) {
+                            out.push(b' ');
+                        }
+                        out.push(c);
+                    }),
+                    map(many0_count(char('\n')), mark_ws),
+                    map(many0_count(char('\r')), mark_ws),
+                ))),
+            )),
+            |_| (),
+        ),
+        map(fws, |_| ()),
+    )))(i)?;
+    Ok((i, out))
 }
 
 /// obs-NO-WS-CTL =   %d1-8 /            ; US-ASCII control

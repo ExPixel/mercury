@@ -1,65 +1,74 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import { Box, Text, createStyles, Group } from '@mantine/core';
-import { formatRelative } from 'date-fns';
+import { Box, Text, createStyles, Group, DefaultProps, useComponentDefaultProps } from '@mantine/core';
+import { isWithinInterval, startOfToday, endOfToday, format } from 'date-fns';
 import * as React from 'react';
 import { MailListItem } from '../api/response';
 import { EmailPath, parseValidEmailPath } from '../util/email';
 
-export interface EmailCardProps {
+export interface EmailListItemProps extends DefaultProps {
     email: MailListItem,
+    selected: boolean,
+    onClick?: React.MouseEventHandler<HTMLElement>,
 }
 
-const useStyles = createStyles(() => ({
+const defaultProps: Partial<EmailListItemProps> = {
+};
+
+const useStyles = createStyles((theme) => ({
     root: {
-        overflowX: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
         display: 'flex',
         flexDirection: 'column',
-    },
+        padding: theme.spacing.xs,
+        cursor: 'pointer',
 
-    metadata: {
-        padding: 0,
-        margin: 0,
-
-        '& .key': {
-            textAlign: 'end',
+        '&:hover': {
+            backgroundColor: theme.colors.gray[8],
         },
 
-        '& .value': {
-            paddingLeft: '4px',
-        }
+        '&.selected': {
+            backgroundColor: theme.primaryColor,
+        },
     },
+
+    sender: {
+        flex: 1,
+        textOverflow: 'ellipsis',
+        overflow: 'hidden',
+        whiteSpace: 'nowrap',
+    },
+
+    subject: {
+        lineClamp: 2,
+        textOverflow: 'ellipsis',
+        overflow: 'hidden',
+    },
+
+    recipient: {
+        flex: 1,
+        textOverflow: 'ellipsis',
+        overflow: 'hidden',
+        whiteSpace: 'nowrap',
+    }
 }));
 
-export default function EmailListItem(props: EmailCardProps) {
-    const { classes } = useStyles();
-    const { email } = props;
+export default function EmailListItem(props: EmailListItemProps) {
+    const { classes, cx } = useStyles();
+    const { email, selected, className, onClick, ...others } = useComponentDefaultProps('EmailListItem', defaultProps, props);
 
-    return <Box className={classes.root}>
-        <table className={classes.metadata} cellPadding={0} cellSpacing={0}>
-            <tr>
-                <td className="key"><Text span size="sm" weight="bold" color="dimmed">Subj</Text></td>
-                <td className="value"><Text span>Some really long subject line that gets cutoff</Text></td>
-            </tr>
-            <tr>
-                <td className="key"><Text span size="sm" weight="bold" color="dimmed">To</Text></td>
-                <td className="value"><Text span>{email.recipientDisplayString}</Text></td>
-            </tr>
+    const dateFormat = isWithinInterval(email.createdAt,
+        { start: startOfToday(), end: endOfToday() }) ? 'p' : 'P';
+    const formattedDate = format(email.createdAt, dateFormat);
 
-            <tr>
-                <td className="key"><Text span size="sm" weight="bold" color="dimmed">From</Text></td>
-                <td className="value"><Text span>{email.sender.toString()}</Text></td>
-            </tr>
-
-            <tr>
-                <td colSpan={2}>
-                    <Text size="sm" color="dimmed">
-                        {formatRelative(email.createdAt, new Date())}
-                    </Text>
-                </td>
-            </tr>
-        </table>
+    return <Box onClick={onClick} className={cx(classes.root, className, { 'selected': selected })} {...others}>
+        <Group noWrap>
+            <Text className={classes.sender} span weight="bold">{email.sender.toString()}</Text>
+            <Text span>{formattedDate}</Text>
+        </Group>
+        <Text className={classes.subject} span>{email.subject}</Text>
+        <Group noWrap spacing="xs">
+            <Text weight="bold" color="dimmed" span>To:</Text>
+            <Text span>{email.recipientDisplayString}</Text>
+        </Group>
     </Box>;
 }

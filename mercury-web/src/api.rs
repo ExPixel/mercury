@@ -120,6 +120,7 @@ fn serialize_mail_item_headers(
     insert_header!(typed::From, "from");
     insert_header!(typed::Sender, "sender");
     insert_header!(typed::To, "to");
+    insert_header!(typed::Subject, "subject");
 
     Ok(())
 }

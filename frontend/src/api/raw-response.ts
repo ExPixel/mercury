@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 export enum RawAddressType {
     Group = "group",
     Mailbox = "mailbox",
@@ -9,6 +11,7 @@ export interface RawMailListItem {
     from?: RawMailbox[];
     sender?: RawMailbox;
     to: RawAddress[];
+    subject: string;
 }
 
 export type RawAddressMailbox = { type: RawAddressType.Mailbox } & RawMailbox;

@@ -2,6 +2,7 @@
 
 import { Box, Loader, ScrollArea, Text, createStyles } from '@mantine/core';
 import * as React from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useMercury } from '../api';
 import { MailListItem } from '../api/response';
 import EmailList from './EmailList';
@@ -16,21 +17,34 @@ const useStyles = createStyles(() => ({
 }));
 
 export default function EmailListView() {
+    const navigate = useNavigate();
+    const params = useParams();
+
+    let mailId: number | null = Number.parseInt(params['mailId'], 10);
+    if (!Number.isFinite(mailId)) {
+        mailId = null;
+    }
+
     const { classes } = useStyles();
     const mercury = useMercury();
     const [emails, setEmails] = React.useState<MailListItem[]>();
 
+    const onSelectMailItem = (mail: MailListItem) => {
+        console.debug('selected email', mail);
+        navigate(`/mail/${mail.id}`);
+    };
+
     React.useEffect(() => {
         mercury.getMailList().then((mailList) => {
-            console.log('emails', mailList);
+            console.debug('loaded emails', mailList);
             setEmails(mailList);
         });
     }, []);
 
     if (!!emails) {
-        return <ScrollArea className={classes.scroll} offsetScrollbars type="auto">
-            <EmailList emails={emails} />
-        </ScrollArea >;
+        return <ScrollArea className={classes.scroll} type="auto">
+            <EmailList selectedId={mailId} onSelect={onSelectMailItem} emails={emails} />
+        </ScrollArea>;
     } else {
         return <Box sx={{
             display: 'flex',
