@@ -12,9 +12,15 @@ pub enum Error {
     #[error("error while opening file: {1}")]
     OpenFile(#[source] std::io::Error, std::path::PathBuf),
 
+    #[error("error while opening file: {1}")]
+    CreateFile(#[source] std::io::Error, std::path::PathBuf),
+
     #[error("error while creating directory: {1}")]
     CreateDir(#[source] std::io::Error, std::path::PathBuf),
 
     #[error("json error: {1}")]
     Json(#[source] serde_json::Error, &'static str),
+
+    #[error("compression error")]
+    CompressionError(#[source] std::io::Error),
 }

@@ -613,7 +613,6 @@ name = "mercury-smtp"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "async-compression",
  "mail",
  "mercury-storage",
  "serde",
@@ -626,6 +625,7 @@ dependencies = [
 name = "mercury-storage"
 version = "0.1.0"
 dependencies = [
+ "async-compression",
  "crossbeam",
  "mail",
  "rusqlite",

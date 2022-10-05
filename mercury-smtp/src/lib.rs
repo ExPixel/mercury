@@ -1,14 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use std::path::Path;
-
 use anyhow::Context as _;
-use async_compression::tokio::write::GzipEncoder;
 use mail::header::KNOWN_HEADERS;
 use smtp_server::RawMail;
 use storage::Storage;
-use tokio::{io::AsyncWriteExt, sync::mpsc};
-use tracing::{debug, error, warn};
+use tokio::sync::mpsc;
+use tracing::{error, warn};
 
 pub async fn run(config: &SmtpConfig, storage: Storage) -> anyhow::Result<()> {
     let (new_mail_tx, new_mail_rx) = mpsc::unbounded_channel();
@@ -51,40 +48,12 @@ async fn process_new_mail(raw_mail: RawMail, storage: &Storage) -> anyhow::Resul
         }
     }
 
-    let mail_id = storage
+    storage
         .mail
-        .store_mail_headers(&known_headers)
+        .store_mail(&known_headers, &raw_mail.data)
         .await
-        .context("error occurred while storing mail metadata")?;
-    debug!(id = debug(mail_id), "mail metadata stored");
-    let mail_file_path = storage.mail.mail_file_path(mail_id);
+        .context("error occurred while storage mail")?;
 
-    write_mail_file(&mail_file_path, &raw_mail.data)
-        .await
-        .with_context(|| {
-            format!(
-                "error occurred while writing mail data to `{}`",
-                mail_file_path.display()
-            )
-        })?;
-    debug!(path = debug(&mail_file_path), "mail data stored");
-
-    Ok(())
-}
-
-async fn write_mail_file(path: &Path, data: &[u8]) -> anyhow::Result<()> {
-    let file = tokio::fs::File::create(&path)
-        .await
-        .context("failed to open file")?;
-    let mut encoder = GzipEncoder::new(file);
-    encoder
-        .write_all(data)
-        .await
-        .context("failed to write encoded data")?;
-    encoder
-        .shutdown()
-        .await
-        .context("failed to terminate gzip encoder")?;
     Ok(())
 }
 

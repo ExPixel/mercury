@@ -5,9 +5,12 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use async_compression::tokio::write::GzipEncoder;
 use mail::HeaderMap;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
+use tokio::io::AsyncWriteExt;
+use tracing::debug;
 
 use crate::{
     error::{Error, Result},
@@ -25,6 +28,15 @@ pub struct MailStorage {
 impl MailStorage {
     pub fn new(sql: SqliteStorage, config: MailStorageConfig) -> Self {
         MailStorage { sql, config }
+    }
+
+    pub async fn store_mail(&self, headers: &HeaderMap, data: &[u8]) -> Result<MailId> {
+        let mail_id = self.store_mail_headers(headers).await?;
+        debug!(id = debug(mail_id), "mail metadata stored");
+        let mail_file_path = self.mail_file_path(mail_id);
+        write_mail_file(&mail_file_path, data).await?;
+        debug!(path = debug(&mail_file_path), "mail data stored");
+        Ok(mail_id)
     }
 
     pub async fn store_mail_headers(&self, headers: &HeaderMap) -> Result<MailId> {
@@ -76,6 +88,20 @@ impl MailStorage {
             .directory
             .join(Path::new(&format!("{}.mail.gz", id.0)))
     }
+}
+
+async fn write_mail_file(path: &Path, data: &[u8]) -> Result<()> {
+    let file = tokio::fs::File::create(&path)
+        .await
+        .map_err(|err| Error::CreateFile(err, path.into()))?;
+
+    let mut encoder = GzipEncoder::new(file);
+    encoder
+        .write_all(data)
+        .await
+        .map_err(Error::CompressionError)?;
+    encoder.shutdown().await.map_err(Error::CompressionError)?;
+    Ok(())
 }
 
 pub struct StoredMail {
