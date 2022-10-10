@@ -23,7 +23,7 @@ export class WebSocketApi {
             return id;
         }
 
-        this.send({ type: MessageType.ListenForNewMail });
+        this.send({ type: ToServerMessageType.ListenForNewMail });
         this.listeningForNewMail = true;
         return id;
     }
@@ -39,7 +39,7 @@ export class WebSocketApi {
         this.ws.addEventListener('error', this.onSocketError.bind(this));
     }
 
-    private send(message: WsApiMessage) {
+    private send(message: ToServerMessage) {
         const messageString = JSON.stringify(message);
         if (!this.ready) {
             this.messageQueue.push(messageString);
@@ -61,6 +61,24 @@ export class WebSocketApi {
 
     private onSocketMessage(event: MessageEvent) {
         console.debug('received socket message', { event });
+
+        if (typeof event.data === 'string') {
+            const message = JSON.parse(event.data) as FromServerMessage;
+            switch (message.type) {
+                case FromServerMessageType.NewMailAvailable:
+                    this.onNewMailAvailable();
+                    break;
+                default:
+                    console.error("unknown message type", { message });
+                    break;
+            }
+        }
+    }
+
+    private onNewMailAvailable() {
+        this.newMailCallbacks.forEach((callback) => {
+            (callback)();
+        });
     }
 
     private onSocketClose(event: CloseEvent) {
@@ -88,12 +106,24 @@ export class WebSocketApi {
     }
 }
 
-enum MessageType {
+enum ToServerMessageType {
     ListenForNewMail = "ListenForNewMail",
 }
 
 interface ListenForNewMailData {
-    type: MessageType.ListenForNewMail;
+    type: ToServerMessageType.ListenForNewMail;
 }
 
-type WsApiMessage = ListenForNewMailData;
+type ToServerMessage = ListenForNewMailData;
+
+// ---
+
+enum FromServerMessageType {
+    NewMailAvailable = "NewMailAvailable",
+}
+
+interface NewMailAvailable {
+    type: FromServerMessageType.NewMailAvailable,
+}
+
+type FromServerMessage = NewMailAvailable;

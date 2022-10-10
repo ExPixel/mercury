@@ -15,8 +15,8 @@ export default class Mercury {
         this.socket = null;
     }
 
-    public async getMailList(): Promise<MailListItem[]> {
-        const rawList: RawMailListItem[] = await this.get('/mail');
+    public async getMailList(params?: MailListParams): Promise<MailListItem[]> {
+        const rawList: RawMailListItem[] = await this.get('/mail', params);
         return rawList.map((raw) => new MailListItem(raw));
     }
 
@@ -89,6 +89,12 @@ export class APIError extends Error {
     public get statusCode(): number {
         return this.#statusCode;
     }
+}
+
+export interface MailListParams extends Record<string, string | number | boolean> {
+    before?: number;
+    after?: number;
+    max?: number;
 }
 
 export const MercuryContext = React.createContext(new Mercury('localhost:8080/api'));

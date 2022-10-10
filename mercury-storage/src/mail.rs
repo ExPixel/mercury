@@ -64,14 +64,27 @@ impl MailStorage {
             .map_err(|e| Error::Sqlite(e, "storing mail"))
     }
 
-    pub async fn get_mail(&self, max: usize, before: Option<MailId>) -> Result<Vec<StoredMail>> {
+    pub async fn get_mail(
+        &self,
+        max: usize,
+        before: Option<MailId>,
+        after: Option<MailId>,
+        ordering: Ordering,
+    ) -> Result<Vec<StoredMail>> {
         let before = before.map(|mid| mid.0).unwrap_or(i64::MAX);
+        let after = after.map(|mid| mid.0).unwrap_or(0);
+        let ordering = match ordering {
+            Ordering::Ascending => "ASC",
+            Ordering::Descending => "DESC",
+        };
+
         self.sql
             .with::<SqliteResult<Vec<StoredMail>>, _>(move |conn| {
                 let sql =
-                    "SELECT id, headers, created_at FROM mail WHERE id < ? ORDER BY id DESC LIMIT ?;";
-                let mut statement = conn.prepare_cached(sql)?;
-                let rows = statement.query_map((before, max as i64), |row| {
+                    format!("SELECT id, headers, created_at FROM mail WHERE id < ? AND id > ? ORDER BY id {ordering} LIMIT ?;");
+
+                let mut statement = conn.prepare_cached(&sql)?;
+                let rows = statement.query_map((before, after, max as i64), |row| {
                     let headers_json = row.get::<_, String>(1usize)?;
                     let headers = serde_json::from_str(&headers_json).map_err(|e| {
                         rusqlite::Error::FromSqlConversionFailure(
@@ -133,4 +146,9 @@ impl Display for MailId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         <i64 as Display>::fmt(&self.0, f)
     }
+}
+
+pub enum Ordering {
+    Ascending,
+    Descending,
 }

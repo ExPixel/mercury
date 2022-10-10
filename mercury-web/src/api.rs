@@ -14,7 +14,10 @@ use http::header;
 use mail::{header::typed, HeaderMap};
 use serde::Deserialize;
 use serde_json::{Map, Number, Value};
-use storage::{mail::MailId, Storage};
+use storage::{
+    mail::{MailId, Ordering},
+    Storage,
+};
 use time::format_description::well_known::Iso8601;
 use tokio_util::io::ReaderStream;
 use tower_http::cors::CorsLayer;
@@ -52,6 +55,7 @@ async fn raw_mail(Path(mail_id): Path<MailId>, storage: Extension<Storage>) -> i
 struct MailListQuery {
     max: Option<usize>,
     before: Option<MailId>,
+    after: Option<MailId>,
 }
 
 async fn mail_list(
@@ -61,7 +65,7 @@ async fn mail_list(
     let max = params.max.unwrap_or(32);
     let list = storage
         .mail()
-        .get_mail(max, params.before)
+        .get_mail(max, params.before, params.after, Ordering::Descending)
         .await
         .map_err(|err| {
             let err = anyhow::Error::from(err);

@@ -28,6 +28,7 @@ export default function EmailListView() {
     const { classes } = useStyles();
     const mercury = useMercury();
     const [emails, setEmails] = React.useState<MailListItem[]>();
+    const emailsRef = React.useRef(emails);
 
     const onSelectMailItem = (mail: MailListItem) => {
         console.debug('selected email', mail);
@@ -41,7 +42,16 @@ export default function EmailListView() {
         });
 
         const listenerId = mercury.listenForNewMail(() => {
-            console.debug('new mail available');
+            const mailMaxId = (emailsRef.current || []).reduce((acc, item) => {
+                console.log({ acc, item });
+                return Math.max(acc, item.id);
+            }, 0);
+            console.debug('new mail available, fetching mail after %d', mailMaxId);
+
+            mercury.getMailList({ after: mailMaxId }).then((mailList) => {
+                console.debug('loaded new emails', mailList);
+                setEmails(mailList.concat(emailsRef.current || []));
+            });
         });
 
         return () => {

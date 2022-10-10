@@ -80,8 +80,8 @@ async fn on_recv_storage_event(
     debug!(event = debug(event), "received storage event");
 
     if state.listen_for_new_mail {
-        let msg = serde_json::to_string(&WsMessageFromServer::NewMailAvailable)
-            .expect("serialization error");
+        let msg =
+            serde_json::to_string(&ToClientMessage::NewMailAvailable).expect("serialization error");
 
         if let Err(error) = socket.send(Message::Text(msg)).await {
             error!(error = debug(error), "socket send error");
@@ -93,7 +93,7 @@ async fn on_recv_storage_event(
 async fn on_recv_ws_message(_socket: &mut WebSocket, msg: Message, state: &mut SocketState) {
     trace!(msg = debug(&msg), "received websocket message");
 
-    let msg: WsMessageFromClient = match msg {
+    let msg: FromClientMessage = match msg {
         Message::Text(msg) => match serde_json::from_str(&msg) {
             Ok(msg) => msg,
             Err(error) => {
@@ -120,11 +120,11 @@ async fn on_recv_ws_message(_socket: &mut WebSocket, msg: Message, state: &mut S
     };
 
     match msg {
-        WsMessageFromClient::ListenForNewMail => {
+        FromClientMessage::ListenForNewMail => {
             debug!("client is now listening for new mail");
             state.listen_for_new_mail = true;
         }
-        WsMessageFromClient::Heartbeat => trace!("received heartbeat message"),
+        FromClientMessage::Heartbeat => trace!("received heartbeat message"),
     }
 }
 
@@ -137,13 +137,13 @@ pub struct SocketState {
 
 #[derive(Deserialize)]
 #[serde(tag = "type")]
-pub enum WsMessageFromClient {
+pub enum FromClientMessage {
     ListenForNewMail,
     Heartbeat,
 }
 
 #[derive(Serialize)]
 #[serde(tag = "type")]
-pub enum WsMessageFromServer {
+pub enum ToClientMessage {
     NewMailAvailable,
 }
