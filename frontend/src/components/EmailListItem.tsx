@@ -15,7 +15,7 @@ export interface EmailListItemProps extends DefaultProps {
 const defaultProps: Partial<EmailListItemProps> = {
 };
 
-const useStyles = createStyles((theme) => ({
+const useStyles = createStyles((theme: any) => ({
     root: {
         display: 'flex',
         flexDirection: 'column',
@@ -27,7 +27,7 @@ const useStyles = createStyles((theme) => ({
         },
 
         '&.selected': {
-            backgroundColor: theme.primaryColor,
+            backgroundColor: theme.colors[theme.primaryColor],
         },
     },
 

@@ -39,6 +39,14 @@ export default function EmailListView() {
             console.debug('loaded emails', mailList);
             setEmails(mailList);
         });
+
+        const listenerId = mercury.listenForNewMail(() => {
+            console.debug('new mail available');
+        });
+
+        return () => {
+            mercury.removeListener(listenerId);
+        };
     }, []);
 
     if (!!emails) {

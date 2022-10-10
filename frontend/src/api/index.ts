@@ -1,20 +1,34 @@
 import React, { useContext } from "react";
 import { RawMailListItem } from "./raw-response";
 import { MailListItem } from "./response";
+import { NewMailCallback, WebSocketApi } from "./socket";
 
 export default class Mercury {
     private origin: string;
+    private socket: WebSocketApi | null = null;
 
     constructor(origin: string) {
         while (origin.endsWith('/')) {
             origin = origin.substring(0, origin.length - 1);
         }
         this.origin = origin;
+        this.socket = null;
     }
 
     public async getMailList(): Promise<MailListItem[]> {
         const rawList: RawMailListItem[] = await this.get('/mail');
         return rawList.map((raw) => new MailListItem(raw));
+    }
+
+    public listenForNewMail(callback: NewMailCallback): number {
+        const socket = this.ensureWebSocketConnection();
+        return socket.listenForNewMail(callback);
+    }
+
+    public removeListener(listenerId: number) {
+        if (this.socket) {
+            this.socket.removeListener(listenerId);
+        }
     }
 
     private async get(path: string, query?: URLSearchParams | Record<string, string | number | boolean>): Promise<any> {
@@ -24,6 +38,15 @@ export default class Mercury {
         } else {
             throw new APIError(response.status, await response.text());
         }
+    }
+
+    private ensureWebSocketConnection(): WebSocketApi {
+        if (this.socket && this.socket.isOpen) {
+            return this.socket;
+        }
+        const webSocket = new WebSocket('ws://' + this.origin + '/listen');
+        this.socket = new WebSocketApi(webSocket);
+        return this.socket;
     }
 
     private getUrl(path: string, query?: URLSearchParams | Record<string, string | number | boolean>): string {
@@ -51,7 +74,7 @@ export default class Mercury {
             url += '?' + queryString;
         }
 
-        return url;
+        return window.location.protocol + '//' + url;
     }
 }
 
@@ -68,7 +91,7 @@ export class APIError extends Error {
     }
 }
 
-export const MercuryContext = React.createContext(new Mercury('http://localhost:8080/api'));
+export const MercuryContext = React.createContext(new Mercury('localhost:8080/api'));
 export function useMercury(): Mercury {
     return useContext(MercuryContext);
 }

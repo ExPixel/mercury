@@ -17,7 +17,7 @@ use nom::{
 
 use super::reply::Code;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 #[allow(clippy::upper_case_acronyms)]
 #[rustfmt::skip]
 pub enum Command {

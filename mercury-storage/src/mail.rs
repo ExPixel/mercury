@@ -9,25 +9,34 @@ use async_compression::tokio::write::GzipEncoder;
 use mail::HeaderMap;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
-use tokio::io::AsyncWriteExt;
+use tokio::{io::AsyncWriteExt, sync::broadcast};
 use tracing::debug;
 
 use crate::{
     error::{Error, Result},
     sqlite::SqliteStorage,
-    MailStorageConfig,
+    MailStorageConfig, StorageEvent,
 };
 use rusqlite::Result as SqliteResult;
 
 #[derive(Clone)]
 pub struct MailStorage {
     sql: SqliteStorage,
+    event_tx: broadcast::Sender<StorageEvent>,
     config: MailStorageConfig,
 }
 
 impl MailStorage {
-    pub fn new(sql: SqliteStorage, config: MailStorageConfig) -> Self {
-        MailStorage { sql, config }
+    pub fn new(
+        sql: SqliteStorage,
+        event_tx: broadcast::Sender<StorageEvent>,
+        config: MailStorageConfig,
+    ) -> Self {
+        MailStorage {
+            sql,
+            event_tx,
+            config,
+        }
     }
 
     pub async fn store_mail(&self, headers: &HeaderMap, data: &[u8]) -> Result<MailId> {
@@ -36,6 +45,7 @@ impl MailStorage {
         let mail_file_path = self.mail_file_path(mail_id);
         write_mail_file(&mail_file_path, data).await?;
         debug!(path = debug(&mail_file_path), "mail data stored");
+        let _ = self.event_tx.send(StorageEvent::NewMail(mail_id));
         Ok(mail_id)
     }
 

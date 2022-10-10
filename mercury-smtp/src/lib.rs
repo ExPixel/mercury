@@ -49,7 +49,7 @@ async fn process_new_mail(raw_mail: RawMail, storage: &Storage) -> anyhow::Resul
     }
 
     storage
-        .mail
+        .mail()
         .store_mail(&known_headers, &raw_mail.data)
         .await
         .context("error occurred while storage mail")?;

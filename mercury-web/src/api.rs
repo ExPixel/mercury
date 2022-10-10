@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+mod listen;
 
 use async_compression::tokio::bufread::GzipDecoder;
 use axum::{
@@ -23,11 +24,12 @@ pub fn routes() -> Router {
     Router::new()
         .route("/mail", get(mail_list))
         .route("/mail/:id/raw", get(raw_mail))
+        .route("/listen", get(listen::listen))
         .layer(CorsLayer::new())
 }
 
 async fn raw_mail(Path(mail_id): Path<MailId>, storage: Extension<Storage>) -> impl IntoResponse {
-    let mail_path = storage.mail.mail_file_path(mail_id);
+    let mail_path = storage.mail().mail_file_path(mail_id);
     let file = match tokio::fs::File::open(mail_path).await {
         Ok(file) => file,
         Err(_) => return Err((StatusCode::NOT_FOUND, "mail file not found")),
@@ -58,7 +60,7 @@ async fn mail_list(
 ) -> Result<Json<Value>, (StatusCode, &'static str)> {
     let max = params.max.unwrap_or(32);
     let list = storage
-        .mail
+        .mail()
         .get_mail(max, params.before)
         .await
         .map_err(|err| {
