@@ -6,11 +6,9 @@ export class WebSocketApi {
     private closed: boolean = false;
     private ready: boolean = false;
     private listeningForNewMail: boolean = false;
-    private heartbeatIntervalId: number = -1;
     private newMailCallbacks: Map<number, NewMailCallback> = new Map();
 
     private static NEXT_ID = 0;
-    private static readonly HEARTBEAT_INTERVAL_MS = 30_000;
 
     constructor(ws: WebSocket) {
         this.ws = ws;
@@ -41,37 +39,6 @@ export class WebSocketApi {
         this.ws.addEventListener('error', this.onSocketError.bind(this));
     }
 
-    private startHeartbeat() {
-        if (this.heartbeatIntervalId >= 0) {
-            return;
-        }
-        console.debug('starting websocket heartbeat');
-        this.heartbeatIntervalId = setInterval(this.heartbeatTick.bind(this), WebSocketApi.HEARTBEAT_INTERVAL_MS);
-    }
-
-    private refreshHeartbeat() {
-        if (this.heartbeatIntervalId < 0) {
-            return;
-        }
-        clearInterval(this.heartbeatIntervalId);
-        this.heartbeatIntervalId = -1;
-        this.heartbeatIntervalId = setInterval(this.heartbeatTick.bind(this), WebSocketApi.HEARTBEAT_INTERVAL_MS);
-    }
-
-    private stopHeartbeat() {
-        if (this.heartbeatIntervalId < 0) {
-            return;
-        }
-        console.debug('stopping websocket heartbeat');
-        clearInterval(this.heartbeatIntervalId);
-        this.heartbeatIntervalId = -1;
-    }
-
-    private heartbeatTick() {
-        if (!this.ready) { return; } // don't want this queued
-        this.send({ type: MessageType.Heartbeat });
-    }
-
     private send(message: WsApiMessage) {
         const messageString = JSON.stringify(message);
         if (!this.ready) {
@@ -79,10 +46,6 @@ export class WebSocketApi {
             return;
         }
         this.ws.send(messageString);
-
-        if (message.type !== MessageType.Heartbeat) {
-            this.refreshHeartbeat();
-        }
     }
 
     private onSocketOpen(event: Event) {
@@ -94,13 +57,10 @@ export class WebSocketApi {
             this.ws.send(message);
         }
         this.messageQueue.length = 0;
-
-        this.startHeartbeat();
     }
 
     private onSocketMessage(event: MessageEvent) {
         console.debug('received socket message', { event });
-        this.refreshHeartbeat();
     }
 
     private onSocketClose(event: CloseEvent) {
@@ -117,7 +77,6 @@ export class WebSocketApi {
         this.closed = true;
         this.ready = false;
         this.listeningForNewMail = false;
-        this.stopHeartbeat();
     }
 
     get isReady(): boolean {
@@ -131,15 +90,10 @@ export class WebSocketApi {
 
 enum MessageType {
     ListenForNewMail = "ListenForNewMail",
-    Heartbeat = "Heartbeat",
 }
 
 interface ListenForNewMailData {
     type: MessageType.ListenForNewMail;
 }
 
-interface Heartbeat {
-    type: MessageType.Heartbeat;
-}
-
-type WsApiMessage = ListenForNewMailData | Heartbeat;
+type WsApiMessage = ListenForNewMailData;

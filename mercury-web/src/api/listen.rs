@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use axum::{
     extract::{
         ws::{Message, WebSocket},
@@ -19,11 +21,13 @@ async fn handle_socket(mut socket: WebSocket, storage: Storage) {
 
     let mut event_rx = storage.subscribe();
     let mut state = SocketState::default();
+    let mut heartbeat = tokio::time::interval(Duration::from_secs(30));
 
     'select_loop: loop {
         tokio::select! {
             maybe_msg = socket.recv() => {
                 if let Some(msg) = maybe_msg {
+                    state.active = true;
                     match msg {
                         Ok(msg) => on_recv_ws_message(&mut socket, msg, &mut state).await,
                         Err(err) => {
@@ -43,11 +47,29 @@ async fn handle_socket(mut socket: WebSocket, storage: Storage) {
                     error!("storage event recv error");
                     break 'select_loop;
                 }
-            }
+            },
+
+            _ = heartbeat.tick() => {
+                trace!("sending heartbeat ping");
+                if let Err(err) = socket.send(Message::Ping(vec![0xEF, 0xBE, 0xAD, 0xDE])).await {
+                    error!(error = debug(err), "socket send error");
+                    break 'select_loop;
+                }
+            },
+        }
+
+        if state.closed {
+            debug!("socket state closed is true, exiting loop");
+            break 'select_loop;
+        }
+
+        if state.active {
+            state.active = false;
+            heartbeat.reset();
         }
     }
 
-    debug!("websocket disconnecting");
+    debug!("exited websocket loop");
 }
 
 async fn on_recv_storage_event(
@@ -64,23 +86,37 @@ async fn on_recv_storage_event(
         if let Err(error) = socket.send(Message::Text(msg)).await {
             error!(error = debug(error), "socket send error");
         }
+        state.active = true;
     }
 }
 
-async fn on_recv_ws_message(socket: &mut WebSocket, msg: Message, state: &mut SocketState) {
+async fn on_recv_ws_message(_socket: &mut WebSocket, msg: Message, state: &mut SocketState) {
     trace!(msg = debug(&msg), "received websocket message");
 
-    let msg: WsMessageFromClient = if let Message::Text(msg) = msg {
-        match serde_json::from_str(&msg) {
+    let msg: WsMessageFromClient = match msg {
+        Message::Text(msg) => match serde_json::from_str(&msg) {
             Ok(msg) => msg,
             Err(error) => {
                 error!(error = debug(error), "deserialization error");
                 return;
             }
+        },
+
+        Message::Pong(_) => {
+            trace!("received pong response");
+            return;
         }
-    } else {
-        error!(message = debug(msg), "invalid message type");
-        return;
+
+        Message::Close(frame) => {
+            trace!(frame = debug(frame), "close message received");
+            state.closed = true;
+            return;
+        }
+
+        _ => {
+            error!(message = debug(msg), "invalid message type");
+            return;
+        }
     };
 
     match msg {
@@ -95,6 +131,8 @@ async fn on_recv_ws_message(socket: &mut WebSocket, msg: Message, state: &mut So
 #[derive(Default)]
 pub struct SocketState {
     listen_for_new_mail: bool,
+    active: bool,
+    closed: bool,
 }
 
 #[derive(Deserialize)]
