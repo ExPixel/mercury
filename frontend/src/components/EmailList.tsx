@@ -14,6 +14,10 @@ export interface EmailListProps {
 const useStyles = createStyles((theme) => ({
     item: {
         borderBottom: `1px solid ${theme.colors.gray[7]}`,
+
+        '&:first-child': {
+            borderTop: `1px solid ${theme.colors.gray[7]}`,
+        }
     }
 }));
 
