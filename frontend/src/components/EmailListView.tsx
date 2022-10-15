@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import { Box, Loader, ScrollArea, Text, createStyles } from '@mantine/core';
+import { Box, Loader, Text, createStyles } from '@mantine/core';
 import * as React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMercury } from '../api';
@@ -8,12 +8,13 @@ import { MailListItem } from '../api/response';
 import EmailList from './EmailList';
 
 const useStyles = createStyles(() => ({
-    scroll: {
-        '& > div > div': {
-            display: 'flex !important',
-            flexDirection: 'column',
-        }
-    },
+    loadingContainer: {
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        flex: 1,
+    }
 }));
 
 export default function EmailListView() {
@@ -60,17 +61,9 @@ export default function EmailListView() {
     }, []);
 
     if (!!emails) {
-        return <ScrollArea className={classes.scroll} type="auto">
-            <EmailList selectedId={mailId} onSelect={onSelectMailItem} emails={emails} />
-        </ScrollArea>;
+        return <EmailList selectedId={mailId} onSelect={onSelectMailItem} emails={emails} />;
     } else {
-        return <Box sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            alignItems: 'center',
-            flex: 1,
-        }}>
+        return <Box className={classes.loadingContainer}>
             <Text color="dimmed" size="lg">Fetching Emails...</Text>
             <Loader size="xl" variant='bars' />
         </Box>;

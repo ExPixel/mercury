@@ -16,7 +16,7 @@ function AppEmailList() {
     const navigation =
         <>
             <Navbar.Section mt='xs'>[ HEADER ]</Navbar.Section>
-            <Navbar.Section grow mt='md' sx={{ display: 'flex', flexDirection: 'column' }}>
+            <Navbar.Section grow mt='md' sx={{ overflow: 'auto' }}>
                 <EmailListView />
             </Navbar.Section>
             <Navbar.Section>[ FOOTER ]</Navbar.Section>
